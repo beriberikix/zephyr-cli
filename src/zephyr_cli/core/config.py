@@ -14,7 +14,7 @@ import tomllib  # type: ignore[no-redef]
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from platformdirs import user_config_dir
+from platformdirs import user_config_dir, user_data_dir
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -57,6 +57,9 @@ class ZephyrCliConfig:
 
     # Remote emulation server URL (enables "remote" backend)
     remote_emulate_url: str = ""
+
+    # Data directory for caches, SDKs, docs
+    data_dir: str = field(default_factory=lambda: str(Path(user_data_dir(APP_NAME))))
 
 
 # ---------------------------------------------------------------------------

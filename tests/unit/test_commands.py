@@ -23,7 +23,6 @@ class TestVersionCommand:
     def test_version_contains_semver(self):
         result = runner.invoke(app, ["version"])
         data = json.loads(result.output)
-        # Version should be a non-empty string
         assert len(data["zephyr_cli"]) > 0
 
 
@@ -32,7 +31,6 @@ class TestEnvCommand:
         result = runner.invoke(app, ["env"])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        # Core keys must be present
         assert "sdk" in data
         assert "west" in data
         assert "cmake" in data
@@ -54,29 +52,29 @@ class TestEnvCommand:
         assert isinstance(data["installed_skills"], list)
 
 
-class TestPlaceholderCommands:
-    """Phase 1/2 commands should return not_implemented with a helpful hint."""
+class TestSubcommandsShowHelp:
+    """Phase 1 sub-apps should show help (exit 0) when invoked without args."""
 
-    def test_sdk_not_implemented(self):
-        result = runner.invoke(app, ["sdk"])
-        assert result.exit_code == 1
-        data = json.loads(result.output)
-        assert data["status"] == "not_implemented"
+    def test_sdk_shows_help(self):
+        result = runner.invoke(app, ["sdk", "--help"])
+        assert result.exit_code == 0
+        assert "install" in result.output or "list" in result.output
 
-    def test_create_not_implemented(self):
-        result = runner.invoke(app, ["create"])
-        assert result.exit_code == 1
-        data = json.loads(result.output)
-        assert data["status"] == "not_implemented"
+    def test_skills_shows_help(self):
+        result = runner.invoke(app, ["skills", "--help"])
+        assert result.exit_code == 0
+        assert "list" in result.output or "install" in result.output
 
-    def test_skills_not_implemented(self):
-        result = runner.invoke(app, ["skills"])
-        assert result.exit_code == 1
-        data = json.loads(result.output)
-        assert data["status"] == "not_implemented"
+    def test_docs_shows_help(self):
+        result = runner.invoke(app, ["docs", "--help"])
+        assert result.exit_code == 0
+        assert "list" in result.output or "refresh" in result.output
 
-    def test_docs_not_implemented(self):
-        result = runner.invoke(app, ["docs"])
-        assert result.exit_code == 1
-        data = json.loads(result.output)
-        assert data["status"] == "not_implemented"
+    def test_create_shows_help(self):
+        result = runner.invoke(app, ["create", "--help"])
+        assert result.exit_code == 0
+        assert "topology" in result.output.lower() or "name" in result.output.lower()
+
+    def test_update_shows_help(self):
+        result = runner.invoke(app, ["update", "--help"])
+        assert result.exit_code == 0
