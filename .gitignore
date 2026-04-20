@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+pip-wheel-metadata/
+.installed.cfg
+lib/
+lib64/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Type checking
+.pyright/
+.mypy_cache/
+pyrightconfig.json
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Distribution
+dist/
+*.whl
+*.tar.gz
+
+# Hatch
+.hatch/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Zephyr workspace artifacts (if this repo is inside a workspace)
+.west/
+twister-out/
+
+# zephyr-cli local artifacts
+.zephyr/skills/
+.zephyr/docs-cache/
