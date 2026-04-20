@@ -113,7 +113,15 @@ class AgentCommand(WestCommand):
         kconfig_p = inspect_sub.add_parser("kconfig", help="Dump resolved Kconfig.")
         kconfig_p.add_argument(
             "--symbol", metavar="SYM",
-            help="Filter to a specific Kconfig symbol (e.g. CONFIG_BT).",
+            help="Filter to a single Kconfig symbol (e.g. CONFIG_BT).",
+        )
+        kconfig_p.add_argument(
+            "--search", metavar="PATTERN",
+            help="Regex to search symbol names (e.g. 'BT_.*').",
+        )
+        kconfig_p.add_argument(
+            "--changed", action="store_true",
+            help="Show only symbols explicitly set (non-default, non-n).",
         )
         kconfig_p.add_argument(
             "--build-dir", "-d", default=None,
@@ -126,8 +134,16 @@ class AgentCommand(WestCommand):
             help="Filter to a specific DTS node path (e.g. /soc/uart@40002000).",
         )
         dts_p.add_argument(
+            "--compatible", metavar="COMPAT",
+            help="Filter to nodes with a specific compatible string.",
+        )
+        dts_p.add_argument(
+            "--chosen", action="store_true",
+            help="Show only the chosen node mappings.",
+        )
+        dts_p.add_argument(
             "--build-dir", "-d", default=None,
-            help="Build directory containing zephyr.dts.",
+            help="Build directory containing zephyr.dts / edt.pickle.",
         )
 
         memory_p = inspect_sub.add_parser("memory", help="ROM/RAM section analysis.")
@@ -146,7 +162,25 @@ class AgentCommand(WestCommand):
             help="Build directory containing zephyr.elf.",
         )
 
-        inspect_sub.add_parser("modules", help="List all west modules.")
+        modules_p = inspect_sub.add_parser("modules", help="List west modules with metadata.")
+        modules_p.add_argument(
+            "--with-paths", action="store_true",
+            help="Include board/DTS/Kconfig root paths from module.yml.",
+        )
+
+        bindings_p = inspect_sub.add_parser("bindings", help="Search DTS binding definitions.")
+        bindings_p.add_argument(
+            "--compatible", metavar="COMPAT",
+            help="Exact compatible string to look up (e.g. 'nordic,nrf-uart').",
+        )
+        bindings_p.add_argument(
+            "--search", metavar="PATTERN",
+            help="Regex to search compatible strings.",
+        )
+        bindings_p.add_argument(
+            "--dir", metavar="PATH", action="append", dest="extra_dirs",
+            help="Extra bindings directory to search (may be given multiple times).",
+        )
 
         inspect_sub.add_parser("env", help="Dump effective build environment variables.")
 
@@ -275,6 +309,7 @@ class AgentCommand(WestCommand):
             "memory": self._inspect_memory,
             "threads": self._inspect_threads,
             "modules": self._inspect_modules,
+            "bindings": self._inspect_bindings,
             "env": self._inspect_env,
         }
         handler = dispatch.get(target) if target is not None else None
@@ -336,21 +371,6 @@ class AgentCommand(WestCommand):
             )
             raise SystemExit(1)
 
-        symbol = getattr(args, "symbol", None)
-
-        try:
-            import kconfiglib  # type: ignore[import-untyped]
-        except ImportError:
-            self._emit(
-                {
-                    "status": "error",
-                    "reason": "kconfiglib_not_installed",
-                    "hint": "pip install kconfiglib",
-                },
-                fmt,
-            )
-            raise SystemExit(1) from None
-
         zephyr_base = os.environ.get("ZEPHYR_BASE")
         if not zephyr_base:
             self._emit(
@@ -363,14 +383,27 @@ class AgentCommand(WestCommand):
             )
             raise SystemExit(1)
 
-        # Load Kconfig using the build's merged Kconfig root
-        kconfig_file = bd / "Kconfig"
-        if not kconfig_file.exists():
-            # Fall back to Zephyr's top-level Kconfig
-            kconfig_file = Path(zephyr_base) / "Kconfig"
+        try:
+            from zephyr_cli.west_agent.inspect.kconfig import (
+                changed_symbols,
+                load_kconfig,
+                search_symbols,
+                symbol_to_dict,
+            )
+            kconf = load_kconfig(zephyr_base, bd, dot_config)
+        except ImportError as exc:
+            self._emit(
+                {"status": "error", "reason": "kconfiglib_not_installed", "hint": "pip install kconfiglib"},
+                fmt,
+            )
+            raise SystemExit(1) from exc
+        except Exception as exc:
+            self._emit({"status": "error", "reason": "kconfig_load_failed", "message": str(exc)}, fmt)
+            raise SystemExit(1) from exc
 
-        kconf = kconfiglib.Kconfig(str(kconfig_file), warn=False)
-        kconf.load_config(str(dot_config))
+        symbol = getattr(args, "symbol", None)
+        search = getattr(args, "search", None)
+        changed = getattr(args, "changed", False)
 
         if symbol:
             sym_name = symbol.removeprefix("CONFIG_")
@@ -381,79 +414,84 @@ class AgentCommand(WestCommand):
                     fmt,
                 )
                 raise SystemExit(1)
-            self._emit(_kconfig_symbol_to_dict(sym), fmt)
+            self._emit({"status": "ok", "build_dir": str(bd), "symbol": symbol_to_dict(sym)}, fmt)
+        elif search:
+            symbols = search_symbols(kconf, search, changed_only=changed)
+            self._emit(
+                {"status": "ok", "build_dir": str(bd), "pattern": search, "count": len(symbols), "symbols": symbols},
+                fmt,
+            )
+        elif changed:
+            symbols = changed_symbols(kconf)
+            self._emit(
+                {"status": "ok", "build_dir": str(bd), "count": len(symbols), "symbols": symbols},
+                fmt,
+            )
         else:
-            # Dump all non-default, set symbols
-            result = {
-                "build_dir": str(bd),
-                "symbols": [
-                    _kconfig_symbol_to_dict(sym)
-                    for sym in kconf.syms.values()
-                    if sym.str_value not in ("n", "")
-                    and sym.orig_type != kconfiglib.UNKNOWN
-                ],
-            }
-            self._emit(result, fmt)
+            symbols = changed_symbols(kconf)
+            self._emit(
+                {"status": "ok", "build_dir": str(bd), "count": len(symbols), "symbols": symbols},
+                fmt,
+            )
 
     def _inspect_dts(self, args: argparse.Namespace, fmt: str) -> None:
         bd = self._require_build_dir(args, fmt)
         assert bd is not None
 
-        zephyr_dts = bd / "zephyr" / "zephyr.dts"
-        edt_pickle = bd / "zephyr" / "edt.pickle"
+        zephyr_base = os.environ.get("ZEPHYR_BASE", "")
+        node_filter = getattr(args, "node", None)
+        compat_filter = getattr(args, "compatible", None)
+        chosen_only = getattr(args, "chosen", False)
 
-        if not zephyr_dts.exists():
+        try:
+            from zephyr_cli.west_agent.inspect.dts import get_chosen, load_edt, node_to_dict
+
+            edt = load_edt(bd, zephyr_base)
+
+            if chosen_only:
+                self._emit(
+                    {"status": "ok", "build_dir": str(bd), "chosen": get_chosen(edt)},
+                    fmt,
+                )
+                return
+
+            nodes = list(getattr(edt, "nodes", []))
+            if node_filter:
+                nodes = [n for n in nodes if n.path == node_filter]
+            if compat_filter:
+                nodes = [n for n in nodes if compat_filter in list(getattr(n, "compats", []) or [])]
+
+            edt_pickle = bd / "zephyr" / "edt.pickle"
+            source = "edt.pickle" if edt_pickle.exists() else "zephyr.dts"
+
+            self._emit(
+                {
+                    "status": "ok",
+                    "build_dir": str(bd),
+                    "source": source,
+                    "count": len(nodes),
+                    "nodes": [node_to_dict(n) for n in nodes],
+                },
+                fmt,
+            )
+        except FileNotFoundError as exc:
             self._emit(
                 {
                     "status": "error",
-                    "reason": "zephyr_dts_not_found",
+                    "reason": "dts_not_found",
                     "build_dir": str(bd),
+                    "message": str(exc),
                     "hint": "Run 'west agent build' to generate the merged DTS.",
                 },
                 fmt,
             )
-            raise SystemExit(1)
-
-        node_filter = getattr(args, "node", None)
-
-        # Use edtlib if available (preferred — gives full binding-resolved data)
-        try:
-            import pickle
-
-            if edt_pickle.exists():
-                with open(edt_pickle, "rb") as f:
-                    edt = pickle.load(f)
-                nodes = edt.nodes
-                if node_filter:
-                    nodes = [n for n in nodes if n.path == node_filter]
-                result = {
-                    "build_dir": str(bd),
-                    "source": "edt.pickle",
-                    "nodes": [_edt_node_to_dict(n) for n in nodes],
-                }
-            else:
-                # Fall back to raw DTS text parse via edtlib directly
-                zephyr_base = os.environ.get("ZEPHYR_BASE", "")
-                bindings_dirs = [str(Path(zephyr_base) / "dts" / "bindings")]
-                sys.path.insert(0, str(Path(zephyr_base) / "scripts" / "dts"))
-                import edtlib  # type: ignore[import-untyped]
-
-                edt = edtlib.EDT(str(zephyr_dts), bindings_dirs)
-                nodes = edt.nodes
-                if node_filter:
-                    nodes = [n for n in nodes if n.path == node_filter]
-                result = {
-                    "build_dir": str(bd),
-                    "source": "zephyr.dts",
-                    "nodes": [_edt_node_to_dict(n) for n in nodes],
-                }
-            self._emit(result, fmt)
-        except Exception as e:
+            raise SystemExit(1) from None
+        except Exception as exc:
             self._emit(
                 {
                     "status": "error",
                     "reason": "dts_parse_failed",
-                    "message": str(e),
+                    "message": str(exc),
                     "hint": "Ensure ZEPHYR_BASE is set and the build is complete.",
                 },
                 fmt,
@@ -519,39 +557,66 @@ class AgentCommand(WestCommand):
         self._emit(result, fmt)
 
     def _inspect_modules(self, args: argparse.Namespace, fmt: str) -> None:
-        """List west modules via 'west list -f json' or parse west manifest."""
-        try:
-            result = subprocess.run(
-                ["west", "list", "--format={name} {path} {url} {revision}"],
-                capture_output=True,
-                text=True,
-            )
-        except FileNotFoundError:
+        """List west modules with metadata from module.yml."""
+        from zephyr_cli.west_agent.inspect.modules import list_modules
+
+        with_paths = getattr(args, "with_paths", False)
+        modules = list_modules()
+
+        if not with_paths:
+            _path_fields = {
+                "board_root", "dts_root", "snippet_root",
+                "soc_root", "dts_bindings_root", "kconfig", "cmake",
+            }
+            modules = [{k: v for k, v in m.items() if k not in _path_fields} for m in modules]
+
+        self._emit({"status": "ok", "count": len(modules), "modules": modules}, fmt)
+
+    def _inspect_bindings(self, args: argparse.Namespace, fmt: str) -> None:
+        """Search DTS binding definitions across ZEPHYR_BASE and west modules."""
+        zephyr_base = os.environ.get("ZEPHYR_BASE", "")
+        if not zephyr_base:
             self._emit(
-                {"status": "error", "reason": "west_not_found"},
+                {
+                    "status": "error",
+                    "reason": "ZEPHYR_BASE_not_set",
+                    "hint": "Source zephyr-env.sh or set ZEPHYR_BASE.",
+                },
                 fmt,
             )
-            raise SystemExit(1) from None
+            raise SystemExit(1)
 
-        modules = []
-        for line in result.stdout.strip().splitlines():
-            parts = line.split(None, 3)
-            if len(parts) >= 2:
-                name, path = parts[0], parts[1]
-                url = parts[2] if len(parts) > 2 else None
-                revision = parts[3] if len(parts) > 3 else None
-                abs_path = Path(path).resolve() if path != "None" else None
-                modules.append(
-                    {
-                        "name": name,
-                        "path": str(abs_path) if abs_path else path,
-                        "url": url,
-                        "revision": revision,
-                        "in_tree": _is_in_zephyr_tree(abs_path),
-                    }
-                )
+        from zephyr_cli.west_agent.inspect.bindings import search_bindings
+        from zephyr_cli.west_agent.inspect.modules import collect_bindings_dirs
 
-        self._emit({"modules": modules, "count": len(modules)}, fmt)
+        dirs = collect_bindings_dirs(zephyr_base)
+        extra_dirs: list[str] = getattr(args, "extra_dirs", None) or []
+        dirs.extend(extra_dirs)
+
+        compatible = getattr(args, "compatible", None)
+        search = getattr(args, "search", None)
+
+        if not compatible and not search:
+            self._emit(
+                {
+                    "status": "error",
+                    "reason": "no_filter",
+                    "hint": "Provide --compatible or --search to filter bindings.",
+                },
+                fmt,
+            )
+            raise SystemExit(1)
+
+        results = search_bindings(dirs, compatible=compatible, pattern=search)
+        self._emit(
+            {
+                "status": "ok",
+                "count": len(results),
+                "dirs_searched": dirs,
+                "bindings": results,
+            },
+            fmt,
+        )
 
     def _inspect_env(self, args: argparse.Namespace, fmt: str) -> None:
         """Dump all effective build environment variables."""
@@ -591,88 +656,3 @@ class AgentCommand(WestCommand):
                 print(json.dumps(data, indent=2, default=str))
 
 
-# ---------------------------------------------------------------------------
-# DTS / Kconfig helper functions (keep __init__.py focused on dispatch)
-# ---------------------------------------------------------------------------
-
-
-def _kconfig_symbol_to_dict(sym: object) -> dict:
-    """Convert a kconfiglib Symbol to a plain dict."""
-    try:
-        import kconfiglib  # type: ignore[import-untyped]
-    except ImportError:
-        return {}
-
-    type_map = {
-        kconfiglib.BOOL: "bool",
-        kconfiglib.INT: "int",
-        kconfiglib.HEX: "hex",
-        kconfiglib.STRING: "string",
-        kconfiglib.TRISTATE: "tristate",
-    }
-
-    def node_loc(node: object) -> str | None:
-        try:
-            return f"{node.filename}:{node.linenr}"  # type: ignore[attr-defined]
-        except AttributeError:
-            return None
-
-    nodes = getattr(sym, "nodes", [])
-    location = node_loc(nodes[0]) if nodes else None
-    prompt = None
-    if nodes:
-        p = getattr(nodes[0], "prompt", None)
-        if p:
-            prompt = p[0]
-
-    return {
-        "symbol": f"CONFIG_{sym.name}",  # type: ignore[attr-defined]
-        "value": sym.str_value,  # type: ignore[attr-defined]
-        "type": type_map.get(sym.orig_type, "unknown"),  # type: ignore[attr-defined]
-        "prompt": prompt,
-        "location": location,
-        "direct_dependencies": [
-            f"CONFIG_{s.name}"  # type: ignore[attr-defined]
-            for s in getattr(sym, "direct_dep", ()) or []
-            if hasattr(s, "name")
-        ],
-    }
-
-
-def _edt_node_to_dict(node: object) -> dict:
-    """Convert an edtlib Node to a plain dict."""
-    try:
-        props: dict = {}
-        for name, prop in getattr(node, "props", {}).items():
-            try:
-                val = prop.val
-                # Convert bytes/bytearray to hex string for JSON serialisation
-                if isinstance(val, (bytes, bytearray)):
-                    val = val.hex()
-                props[name] = val
-            except Exception:
-                props[name] = repr(prop)
-
-        return {
-            "path": getattr(node, "path", None),
-            "compatible": getattr(node, "compats", []),
-            "status": getattr(node, "status", None),
-            "label": getattr(node, "label", None),
-            "aliases": list(getattr(node, "aliases", [])),
-            "properties": props,
-        }
-    except Exception as e:
-        return {"error": str(e), "path": getattr(node, "path", "unknown")}
-
-
-def _is_in_zephyr_tree(path: Path | None) -> bool:
-    if path is None:
-        return False
-    zb = os.environ.get("ZEPHYR_BASE", "")
-    if not zb:
-        return False
-    try:
-        path.relative_to(Path(zb).parent)
-        return True
-    except ValueError:
-        return False

@@ -33,6 +33,7 @@ dependencies = [
     "west>=1.2",
     "platformdirs>=4.2",
     "pyelftools>=0.31",
+    "kconfiglib>=14.1",
 ]
 
 [project.optional-dependencies]
