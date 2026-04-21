@@ -184,8 +184,36 @@ class AgentCommand(WestCommand):
 
         inspect_sub.add_parser("env", help="Dump effective build environment variables.")
 
-        # --- Phase 3 placeholders ---
-        for name, (_, help_text) in list(self._SUBCOMMANDS.items())[2:]:
+        # --- emulate ---
+        from zephyr_cli.west_agent.backends import KNOWN_BACKENDS
+
+        emulate_p = sub.add_parser("emulate", help="Launch an emulator session.")
+        emulate_p.add_argument(
+            "--backend", "-B",
+            choices=KNOWN_BACKENDS,
+            default="auto",
+            help="Emulation backend. Defaults to auto-detect.",
+        )
+        emulate_p.add_argument(
+            "--timeout", "-t",
+            type=float,
+            default=30.0,
+            metavar="SECONDS",
+            help="Kill emulator after SECONDS (0 = no limit). Default: 30.",
+        )
+        emulate_p.add_argument(
+            "--build-dir", "-d",
+            default=None,
+            help="Build directory. Auto-detected if omitted.",
+        )
+        emulate_p.add_argument(
+            "extra_args",
+            nargs=argparse.REMAINDER,
+            help="Extra arguments passed verbatim to the emulator.",
+        )
+
+        # --- Phase 3 stubs (test / flash / debug) ---
+        for name, (_, help_text) in list(self._SUBCOMMANDS.items())[3:]:
             sub.add_parser(name, help=help_text)
 
         return parser
@@ -200,7 +228,7 @@ class AgentCommand(WestCommand):
         dispatch = {
             "build": self._run_build,
             "inspect": self._run_inspect,
-            "emulate": self._run_phase3_stub,
+            "emulate": self._run_emulate,
             "test": self._run_phase3_stub,
             "flash": self._run_phase3_stub,
             "debug": self._run_phase3_stub,
@@ -295,6 +323,47 @@ class AgentCommand(WestCommand):
 
         self._emit(output.model_dump(mode="json"), fmt)
         if result.returncode != 0:
+            raise SystemExit(1)
+
+    # ------------------------------------------------------------------
+    # west agent emulate
+    # ------------------------------------------------------------------
+
+    def _run_emulate(self, args: argparse.Namespace, fmt: str) -> None:
+        from zephyr_cli.west_agent.backends.detect import detect_backend
+
+        bd = self._require_build_dir(args, fmt)
+        assert bd is not None
+
+        backend_pref: str = getattr(args, "backend", "auto")
+        timeout: float = getattr(args, "timeout", 30.0)
+        extra_args: list[str] = [a for a in (getattr(args, "extra_args", None) or []) if a != "--"]
+
+        try:
+            backend = detect_backend(bd, preference=backend_pref)
+        except ValueError as exc:
+            self._emit({"status": "error", "reason": "unknown_backend", "message": str(exc)}, fmt)
+            raise SystemExit(1) from exc
+
+        if backend is None:
+            self._emit(
+                {
+                    "status": "error",
+                    "reason": "no_backend_available",
+                    "build_dir": str(bd),
+                    "hint": (
+                        "No emulation backend detected. "
+                        "Ensure the build was done for a QEMU-capable board or native_sim, "
+                        "or set ZEPHYR_CLI_REMOTE_URL."
+                    ),
+                },
+                fmt,
+            )
+            raise SystemExit(1)
+
+        result = backend.run(bd, timeout=timeout or None, extra_args=extra_args)
+        self._emit(result.model_dump(mode="json"), fmt)
+        if result.status != "success":
             raise SystemExit(1)
 
     # ------------------------------------------------------------------
