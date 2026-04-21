@@ -4,13 +4,25 @@ Agent-optimized CLI for Zephyr RTOS.
 
 `zephyr-cli` is the primary interface for AI coding agents and CI pipelines to interact with, scaffold, build, and inspect Zephyr RTOS projects. It consists of a global `zephyr-cli` Python package and a `west agent` workspace extension.
 
+All commands emit **structured JSON by default** in non-TTY contexts. Pass `--format human` (or pipe through a TTY) for human-readable output.
+
+## Requirements
+
+- Python ≥ 3.11
+- [west](https://docs.zephyrproject.org/latest/develop/west/index.html) ≥ 1.2
+- `ZEPHYR_BASE` set (source `zephyr-env.sh`) for workspace commands
+
 ## Installation
 
 ```bash
 pip install zephyr-cli
+# or with uv (recommended)
+uv tool install zephyr-cli
 ```
 
-## Usage
+## Global commands (`zephyr-cli`)
+
+These commands work anywhere — no west workspace required.
 
 ```bash
 # Print resolved environment (SDK, west, toolchains, installed skills)
@@ -19,37 +31,131 @@ zephyr-cli env
 # Print version information
 zephyr-cli version
 
-# Inside a west workspace — build with structured JSON output
-west agent build --board nrf52840dk/nrf52840
+# Scaffold a new project (T1 = standalone, T2 = app+MCUboot, T3 = multi-image sysbuild)
+zephyr-cli create my-app --topology T1 --board nrf52840dk/nrf52840
 
-# Inspect resolved Kconfig
-west agent inspect kconfig --symbol CONFIG_BT
+# --- SDK management ---
+zephyr-cli sdk list                      # List installed SDKs
+zephyr-cli sdk list --available          # Also fetch available versions from GitHub
+zephyr-cli sdk install 0.16.8            # Download and install SDK 0.16.8
+zephyr-cli sdk install 0.16.8 --minimal  # Minimal SDK (no host tools)
+zephyr-cli sdk select 0.16.8             # Set active SDK version
 
-# Inspect merged Devicetree
-west agent inspect dts --node /soc/uart@40002000
+# --- Skills management ---
+zephyr-cli skills list                   # List registry + installed skills
+zephyr-cli skills list --installed       # Only show installed skills
+zephyr-cli skills install build-system   # Install a skill into .zephyr/skills/
+zephyr-cli skills install build-system --force
+zephyr-cli skills show build-system      # Show skill details
+zephyr-cli skills suggest "add BLE support" --kconfig CONFIG_BT
 
-# Analyze ROM/RAM usage
-west agent inspect memory --detailed
+# --- Documentation cache ---
+zephyr-cli docs list                     # List cached + available docs releases
+zephyr-cli docs refresh                  # Download/update latest docs
+zephyr-cli docs refresh --version 3.7.0  # Pin to a specific release
 
-# Analyze thread stack allocations
-west agent inspect threads
+# Self-update
+zephyr-cli update
 ```
+
+## Workspace commands (`west agent`)
+
+These commands require an initialized west workspace and a prior `west agent build`.
+
+```bash
+# Build with structured JSON output
+west agent build --board nrf52840dk/nrf52840
+west agent build --board nrf52840dk/nrf52840 --pristine
+west agent build --board nrf52840dk/nrf52840 --extra-conf debug.conf
+west agent build --board nrf52840dk/nrf52840 --build-dir build/custom
+
+# --- Inspect ---
+west agent inspect kconfig                           # Dump changed Kconfig symbols
+west agent inspect kconfig --symbol CONFIG_BT        # Single symbol + dependency tree
+west agent inspect kconfig --search 'BT_.*'          # Regex search
+west agent inspect kconfig --changed                 # Symbols explicitly set (non-default)
+
+west agent inspect dts                               # Dump full merged Devicetree as JSON
+west agent inspect dts --node /soc/uart@40002000     # Filter to a specific node
+west agent inspect dts --compatible nordic,nrf-uart  # Filter by compatible string
+west agent inspect dts --chosen                      # Show chosen node mappings only
+
+west agent inspect memory                            # ROM/RAM section analysis
+west agent inspect memory --detailed                 # Include per-symbol breakdown
+
+west agent inspect threads                           # Thread stack allocation analysis
+
+west agent inspect modules                           # List west modules with metadata
+west agent inspect modules --with-paths              # Include board/DTS/Kconfig root paths
+
+west agent inspect bindings --compatible nordic,nrf-uart  # Look up a DTS binding
+west agent inspect bindings --search 'nordic,nrf-.*'      # Regex search across all bindings
+west agent inspect bindings --compatible nordic,nrf-uart --dir /extra/bindings
+
+west agent inspect env                               # Dump effective build environment variables
+
+# --- Emulate ---
+west agent emulate                                   # Auto-detect backend (QEMU or native_sim)
+west agent emulate --backend qemu --timeout 60
+west agent emulate --backend native_sim
+
+# --- Test ---
+west agent test --platform qemu_cortex_m3
+west agent test --platform qemu_cortex_m3 --platform native_posix
+west agent test --test-dir tests/ --outdir twister-out
+west agent test --build-only
+west agent test --inline-logs --timeout-multiplier 2.0
+
+# --- Flash ---
+west agent flash                                     # Auto-detect runner
+west agent flash --runner openocd
+west agent flash --runner jlink -- --speed 4000
+
+# --- Debug ---
+west agent debug                                     # Attach (blocking)
+west agent debug --server                            # Start debug server in background → {pid, gdb_port}
+west agent debug --server --gdb-port 3333
+west agent debug --rtt-port 19021                    # Stream RTT output as NDJSON
+west agent debug --rtt-port 19021 --rtt-timeout 60
+
+# Override output format for any command
+west agent build --board nrf52840dk/nrf52840 --format human
+```
+
+## GitHub Actions reusable workflow
+
+```yaml
+jobs:
+  zephyr:
+    uses: beriberikix/zephyr-cli/.github/workflows/zephyr-build.yml@main
+    with:
+      board: nrf52840dk/nrf52840
+      app-dir: app/
+      zephyr-sdk-version: "0.16.8"
+      run-tests: true
+      emulate: true
+```
+
+**Inputs:** `board`, `app-dir`, `zephyr-sdk-version`, `run-tests`, `emulate`  
+**Outputs:** `build-status`, `test-status`, `emulate-status`
+
+## Architecture
+
+- **`zephyr-cli`** — global Typer application; manages environment, SDK, project scaffolding, skills, and docs.
+- **`west agent`** — west extension registered via `entry_points["west.commands"]`; all workspace commands in one `WestCommand` subclass.
+- **Skills** install into `<workspace>/.zephyr/skills/`; registry at `beriberikix/zephyr-agent-skills`.
+- **SDK** installs to `<data_dir>/sdks/` via `platformdirs`.
+- **Emulation backends** auto-detected in priority order: QEMU (`runners.yaml`) → native_sim → Docker → Multipass → remote (`ZEPHYR_CLI_REMOTE_URL`).
+- **JSON output** is the default in any non-TTY context; `--format human` opts in to rich-formatted output.
 
 ## Status
 
-Phase 0 (Foundation) — in active development.
+All planned phases complete — 210 unit tests, ruff and pyright clean.
 
-- [x] `zephyr-cli env`
-- [x] `zephyr-cli version`
-- [x] `west agent build`
-- [x] `west agent inspect kconfig`
-- [x] `west agent inspect dts`
-- [x] `west agent inspect memory`
-- [x] `west agent inspect threads`
-- [x] `west agent inspect modules`
-- [ ] Skills management (`zephyr-cli skills`) — Phase 1
-- [ ] Knowledge base (`zephyr-cli docs`) — Phase 1
-- [ ] Emulation (`west agent emulate`) — Phase 3
+- [x] Phase 0 — `env`, `version`, `build`, `inspect` (kconfig/dts/memory/threads/modules/env), CI
+- [x] Phase 1 — `skills`, `sdk`, `create`, `docs`, `update`, skills registry, SDK manager
+- [x] Phase 2 — Full kconfiglib + edtlib integration, `inspect bindings`, `--search`/`--changed`/`--compatible`/`--chosen` flags
+- [x] Phase 3 — `emulate` (pluggable backends), `test` (Twister), `flash`, `debug` (RTT NDJSON streaming), GitHub Actions reusable workflow
 
 ## License
 
