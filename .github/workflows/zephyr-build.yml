@@ -1,0 +1,171 @@
+# Reusable Zephyr build-and-test workflow.
+#
+# Usage from another repository:
+#
+#   jobs:
+#     build:
+#       uses: beriberikix/zephyr-cli/.github/workflows/zephyr-build.yml@main
+#       with:
+#         board: nrf52840dk/nrf52840
+#         app-dir: app
+#
+# Required secrets (only when flashing real hardware):
+#   ZEPHYR_SDK_URL: private SDK tarball URL (optional; public SDK is used otherwise)
+
+name: Zephyr Build & Test
+
+on:
+  workflow_call:
+    inputs:
+      board:
+        description: "West board target (e.g. nrf52840dk/nrf52840, qemu_cortex_m3)"
+        required: true
+        type: string
+
+      app-dir:
+        description: "Application source directory relative to the repo root"
+        required: false
+        type: string
+        default: "."
+
+      zephyr-sdk-version:
+        description: "Zephyr SDK version to install (e.g. 0.16.8)"
+        required: false
+        type: string
+        default: "0.16.8"
+
+      run-tests:
+        description: "Run west twister after a successful build"
+        required: false
+        type: boolean
+        default: false
+
+      test-dir:
+        description: "Directory containing Twister test cases"
+        required: false
+        type: string
+        default: "tests"
+
+      emulate:
+        description: "Run west agent emulate after a successful build"
+        required: false
+        type: boolean
+        default: false
+
+      emulate-timeout:
+        description: "Emulation timeout in seconds"
+        required: false
+        type: number
+        default: 60
+
+      python-version:
+        description: "Python version to use"
+        required: false
+        type: string
+        default: "3.11"
+
+    outputs:
+      build-status:
+        description: "JSON build result from west agent build"
+        value: ${{ jobs.build.outputs.build-status }}
+      test-status:
+        description: "JSON test summary from west agent test (if run-tests is true)"
+        value: ${{ jobs.build.outputs.test-status }}
+      emulate-status:
+        description: "JSON emulate result from west agent emulate (if emulate is true)"
+        value: ${{ jobs.build.outputs.emulate-status }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      build-status: ${{ steps.build.outputs.result }}
+      test-status: ${{ steps.test.outputs.result }}
+      emulate-status: ${{ steps.emulate.outputs.result }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: pip
+
+      - name: Install west and zephyr-cli
+        run: pip install west zephyr-cli
+
+      - name: Initialize west workspace
+        run: |
+          west init -l .
+          west update --narrow
+
+      - name: Install Zephyr SDK ${{ inputs.zephyr-sdk-version }}
+        run: zephyr-cli sdk install --version ${{ inputs.zephyr-sdk-version }}
+
+      - name: Source Zephyr environment
+        run: |
+          source $(west topdir)/zephyr/zephyr-env.sh
+          echo "ZEPHYR_BASE=$(west topdir)/zephyr" >> "$GITHUB_ENV"
+          echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> "$GITHUB_ENV"
+
+      - name: Build
+        id: build
+        run: |
+          result=$(west agent build \
+            --board "${{ inputs.board }}" \
+            --source-dir "${{ inputs.app-dir }}" \
+            --format json)
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "$result" | python -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(json.dumps(d, indent=2))
+          sys.exit(0 if d.get('status') == 'success' else 1)
+          "
+
+      - name: Test
+        id: test
+        if: inputs.run-tests
+        run: |
+          result=$(west agent test \
+            --platform "${{ inputs.board }}" \
+            --test-dir "${{ inputs.test-dir }}" \
+            --format json || true)
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "$result" | python -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(json.dumps(d, indent=2))
+          s = d.get('summary', {})
+          print(f\"Passed: {s.get('passed',0)} / {s.get('total',0)}\", file=sys.stderr)
+          sys.exit(0 if d.get('status') == 'passed' else 1)
+          "
+
+      - name: Emulate
+        id: emulate
+        if: inputs.emulate
+        run: |
+          result=$(west agent emulate \
+            --timeout ${{ inputs.emulate-timeout }} \
+            --format json || true)
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "$result" | python -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(json.dumps(d, indent=2))
+          sys.exit(0 if d.get('status') == 'success' else 1)
+          "
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zephyr-build-${{ inputs.board }}
+          path: |
+            build/**/zephyr.elf
+            build/**/zephyr.hex
+            build/**/zephyr.bin
+            twister-out/twister.json
+          if-no-files-found: ignore

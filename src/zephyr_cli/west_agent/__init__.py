@@ -212,9 +212,97 @@ class AgentCommand(WestCommand):
             help="Extra arguments passed verbatim to the emulator.",
         )
 
-        # --- Phase 3 stubs (test / flash / debug) ---
-        for name, (_, help_text) in list(self._SUBCOMMANDS.items())[3:]:
-            sub.add_parser(name, help=help_text)
+        # --- test ---
+        test_p = sub.add_parser("test", help="Run tests via Twister.")
+        test_p.add_argument(
+            "--platform", "-p",
+            action="append",
+            dest="platforms",
+            metavar="PLATFORM",
+            help="Target platform(s) (may be repeated). e.g. qemu_cortex_m3.",
+        )
+        test_p.add_argument(
+            "--test-dir", "-T",
+            default=None,
+            metavar="DIR",
+            help="Directory containing tests (default: current directory).",
+        )
+        test_p.add_argument(
+            "--outdir", "-O",
+            default="twister-out",
+            metavar="DIR",
+            help="Twister output directory (default: twister-out).",
+        )
+        test_p.add_argument(
+            "--build-only",
+            action="store_true",
+            help="Build tests but do not run them.",
+        )
+        test_p.add_argument(
+            "--timeout-multiplier",
+            type=float,
+            default=1.0,
+            metavar="FACTOR",
+            help="Multiply all test timeouts by FACTOR.",
+        )
+        test_p.add_argument(
+            "--inline-logs",
+            action="store_true",
+            help="Inline test logs into the JSON output.",
+        )
+
+        # --- flash ---
+        flash_p = sub.add_parser("flash", help="Flash firmware to target hardware.")
+        flash_p.add_argument(
+            "--runner", "-r",
+            default=None,
+            metavar="RUNNER",
+            help="Flash runner (e.g. openocd, jlink, pyocd). Auto-detected if omitted.",
+        )
+        flash_p.add_argument(
+            "--build-dir", "-d",
+            default=None,
+            help="Build directory. Auto-detected if omitted.",
+        )
+        flash_p.add_argument(
+            "extra_args",
+            nargs=argparse.REMAINDER,
+            help="Extra arguments passed verbatim to west flash.",
+        )
+
+        # --- debug ---
+        debug_p = sub.add_parser("debug", help="Attach debugger or stream RTT output.")
+        debug_p.add_argument(
+            "--server",
+            action="store_true",
+            help="Start debug server in background and return connection info.",
+        )
+        debug_p.add_argument(
+            "--gdb-port",
+            type=int,
+            default=None,
+            metavar="PORT",
+            help="GDB server port (default: 2331 for J-Link, 3333 for OpenOCD).",
+        )
+        debug_p.add_argument(
+            "--rtt-port",
+            type=int,
+            default=None,
+            metavar="PORT",
+            help="Connect to RTT TCP port and stream output as NDJSON.",
+        )
+        debug_p.add_argument(
+            "--rtt-timeout",
+            type=float,
+            default=30.0,
+            metavar="SECONDS",
+            help="Stop RTT streaming after SECONDS of inactivity (default: 30).",
+        )
+        debug_p.add_argument(
+            "--build-dir", "-d",
+            default=None,
+            help="Build directory. Auto-detected if omitted.",
+        )
 
         return parser
 
@@ -229,9 +317,9 @@ class AgentCommand(WestCommand):
             "build": self._run_build,
             "inspect": self._run_inspect,
             "emulate": self._run_emulate,
-            "test": self._run_phase3_stub,
-            "flash": self._run_phase3_stub,
-            "debug": self._run_phase3_stub,
+            "test": self._run_test,
+            "flash": self._run_flash,
+            "debug": self._run_debug,
         }
         handler = dispatch.get(args.subcommand)
         if handler:
@@ -694,21 +782,243 @@ class AgentCommand(WestCommand):
         self._emit(result.model_dump(mode="json"), fmt)
 
     # ------------------------------------------------------------------
-    # Phase 3 stubs
+    # west agent test
     # ------------------------------------------------------------------
 
-    def _run_phase3_stub(self, args: argparse.Namespace, fmt: str) -> None:
-        subcommand = getattr(args, "subcommand", "unknown")
-        self._emit(
-            {
-                "status": "not_implemented",
-                "subcommand": f"west agent {subcommand}",
-                "phase": 3,
-                "hint": "Emulation and testing commands arrive in Phase 3.",
-            },
-            fmt,
+    def _run_test(self, args: argparse.Namespace, fmt: str) -> None:
+        import json as _json
+        import time
+
+        from zephyr_cli.schemas.test import TestResult, TestSummary, parse_twister_json
+
+        zephyr_base = os.environ.get("ZEPHYR_BASE")
+        if not zephyr_base:
+            self._emit(
+                {"status": "error", "reason": "ZEPHYR_BASE_not_set", "hint": "Source zephyr-env.sh or set ZEPHYR_BASE."},
+                fmt,
+            )
+            raise SystemExit(1)
+
+        platforms: list[str] = getattr(args, "platforms", None) or []
+        test_dir: str = getattr(args, "test_dir", None) or os.getcwd()
+        outdir: str = getattr(args, "outdir", "twister-out")
+        build_only: bool = getattr(args, "build_only", False)
+        timeout_mult: float = getattr(args, "timeout_multiplier", 1.0)
+        inline_logs: bool = getattr(args, "inline_logs", False)
+
+        cmd = [
+            "west", "twister",
+            "-T", str(Path(test_dir).resolve()),
+            "-O", str(Path(outdir).resolve()),
+            "--timeout-multiplier", str(timeout_mult),
+        ]
+        for plat in platforms:
+            cmd += ["-p", plat]
+        if build_only:
+            cmd.append("--build-only")
+        if inline_logs:
+            cmd.append("--inline-logs")
+
+        start = time.monotonic()
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+        except FileNotFoundError:
+            self._emit({"status": "error", "reason": "west_not_found"}, fmt)
+            raise SystemExit(1) from None
+        duration = time.monotonic() - start
+
+        # Parse twister.json if it exists
+        twister_json_path = Path(outdir) / "twister.json"
+        suites = []
+        summary = TestSummary()
+        if twister_json_path.exists():
+            try:
+                with open(twister_json_path) as fh:
+                    raw = _json.load(fh)
+                summary, suites = parse_twister_json(raw)
+            except Exception:
+                pass  # fall through with empty suites
+
+        overall = "error" if proc.returncode != 0 else (
+            "failed" if summary.failed or summary.error else "passed"
         )
-        raise SystemExit(1)
+
+        result = TestResult(
+            status=overall,
+            summary=summary,
+            duration_seconds=round(duration, 2),
+            output_dir=str(Path(outdir).resolve()),
+            suites=suites,
+            raw_output=(proc.stdout + proc.stderr) or None,
+        )
+        self._emit(result.model_dump(mode="json"), fmt)
+        if proc.returncode != 0 or summary.failed or summary.error:
+            raise SystemExit(1)
+
+    # ------------------------------------------------------------------
+    # west agent flash
+    # ------------------------------------------------------------------
+
+    def _run_flash(self, args: argparse.Namespace, fmt: str) -> None:
+        import time
+
+        from zephyr_cli.schemas.flash import FlashResult
+
+        bd = self._require_build_dir(args, fmt)
+        assert bd is not None
+
+        runner: str | None = getattr(args, "runner", None)
+        extra_args: list[str] = [a for a in (getattr(args, "extra_args", None) or []) if a != "--"]
+
+        cmd = ["west", "flash", "-d", str(bd)]
+        if runner:
+            cmd += ["--runner", runner]
+        if extra_args:
+            cmd += ["--", *extra_args]
+
+        start = time.monotonic()
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+        except FileNotFoundError:
+            self._emit({"status": "error", "reason": "west_not_found"}, fmt)
+            raise SystemExit(1) from None
+        duration = time.monotonic() - start
+
+        combined = proc.stdout + proc.stderr
+        status = "success" if proc.returncode == 0 else "error"
+
+        result = FlashResult(
+            status=status,
+            build_dir=str(bd),
+            runner=runner,
+            duration_seconds=round(duration, 2),
+            output=combined or None,
+            error=proc.stderr.strip() or None if proc.returncode != 0 else None,
+        )
+        self._emit(result.model_dump(mode="json"), fmt)
+        if proc.returncode != 0:
+            raise SystemExit(1)
+
+    # ------------------------------------------------------------------
+    # west agent debug
+    # ------------------------------------------------------------------
+
+    def _run_debug(self, args: argparse.Namespace, fmt: str) -> None:
+        import time
+
+        from zephyr_cli.schemas.debug import DebugResult
+
+        bd = self._require_build_dir(args, fmt)
+        assert bd is not None
+
+        server_mode: bool = getattr(args, "server", False)
+        rtt_port: int | None = getattr(args, "rtt_port", None)
+        gdb_port: int | None = getattr(args, "gdb_port", None)
+        rtt_timeout: float = getattr(args, "rtt_timeout", 30.0)
+
+        # --- RTT streaming mode ---
+        if rtt_port is not None:
+            self._run_debug_rtt(bd, rtt_port, rtt_timeout, fmt)
+            return
+
+        # --- Server mode: start west debugserver in background ---
+        if server_mode:
+            cmd = ["west", "debugserver", "-d", str(bd)]
+            if gdb_port:
+                cmd += ["--gdb-port", str(gdb_port)]
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+            except FileNotFoundError:
+                self._emit({"status": "error", "reason": "west_not_found"}, fmt)
+                raise SystemExit(1) from None
+
+            # Wait briefly for the server to bind its port
+            time.sleep(1.0)
+            if proc.poll() is not None:
+                out, err = proc.communicate()
+                result = DebugResult(
+                    status="error",
+                    build_dir=str(bd),
+                    output=(out + err) or None,
+                    error="Debug server exited immediately.",
+                )
+                self._emit(result.model_dump(mode="json"), fmt)
+                raise SystemExit(1)
+
+            result = DebugResult(
+                status="running",
+                build_dir=str(bd),
+                pid=proc.pid,
+                gdb_port=gdb_port or 2331,
+            )
+            self._emit(result.model_dump(mode="json"), fmt)
+            return
+
+        # --- Attach mode: west debug (blocking) ---
+        start = time.monotonic()
+        cmd = ["west", "debug", "-d", str(bd)]
+        try:
+            proc_result = subprocess.run(cmd, capture_output=True, text=True)
+        except FileNotFoundError:
+            self._emit({"status": "error", "reason": "west_not_found"}, fmt)
+            raise SystemExit(1) from None
+        duration = time.monotonic() - start
+
+        combined = proc_result.stdout + proc_result.stderr
+        status = "success" if proc_result.returncode == 0 else "error"
+        result = DebugResult(
+            status=status,
+            build_dir=str(bd),
+            duration_seconds=round(duration, 2),
+            output=combined or None,
+            error=proc_result.stderr.strip() or None if proc_result.returncode != 0 else None,
+        )
+        self._emit(result.model_dump(mode="json"), fmt)
+        if proc_result.returncode != 0:
+            raise SystemExit(1)
+
+    def _run_debug_rtt(self, bd: Path, rtt_port: int, timeout: float, fmt: str) -> None:
+        """Connect to an RTT TCP server and stream output as NDJSON."""
+        import socket
+        import time
+
+        try:
+            sock = socket.create_connection(("localhost", rtt_port), timeout=5.0)
+        except (ConnectionRefusedError, OSError) as exc:
+            self._emit(
+                {
+                    "status": "error",
+                    "reason": "rtt_connection_failed",
+                    "rtt_port": rtt_port,
+                    "message": str(exc),
+                    "hint": "Ensure the debug server is running with RTT enabled.",
+                },
+                fmt,
+            )
+            raise SystemExit(1) from exc
+
+        sock.settimeout(timeout)
+        buf = ""
+        try:
+            while True:
+                try:
+                    chunk = sock.recv(4096)
+                except TimeoutError:
+                    break
+                if not chunk:
+                    break
+                buf += chunk.decode(errors="replace")
+                while "\n" in buf:
+                    line, buf = buf.split("\n", 1)
+                    record = {"ts": time.time(), "channel": 0, "data": line}
+                    print(json.dumps(record))
+        finally:
+            sock.close()
 
     # ------------------------------------------------------------------
     # Output helpers

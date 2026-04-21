@@ -81,6 +81,7 @@ reportMissingModuleSource = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--tb=short -q"
+filterwarnings = ["ignore::pytest.PytestCollectionWarning"]
 
 [tool.coverage.run]
 source = ["src/zephyr_cli"]
