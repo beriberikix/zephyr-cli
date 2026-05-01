@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from types import ModuleType
+from typing import ClassVar
 from unittest.mock import patch
 
 
@@ -27,7 +28,7 @@ class _FakeSymbolTableSection:
 
 
 class _FakeElfFile:
-    symbols: list[_FakeSymbol] = []
+    symbols: ClassVar[list[_FakeSymbol]] = []
 
     def __init__(self, _file_obj):
         pass
@@ -68,9 +69,11 @@ class TestAnalyzeThreads:
             _FakeSymbol("_k_thread_data_agent_worker_tid", 48),
         ]
 
-        with patch.dict("sys.modules", _install_fake_pyelftools()):
-            with patch("builtins.open", return_value=BytesIO(b"fake")):
-                result = analyze_threads(elf_path)
+        with (
+            patch.dict("sys.modules", _install_fake_pyelftools()),
+            patch("builtins.open", return_value=BytesIO(b"fake")),
+        ):
+            result = analyze_threads(elf_path)
 
         assert [thread["name"] for thread in result["threads"]] == [
             "agent_worker_tid",

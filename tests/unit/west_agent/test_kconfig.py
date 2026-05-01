@@ -13,6 +13,7 @@ import pytest
 def _make_y_sym():
     """Return a mock that behaves like kconfiglib's unconditional 'y' symbol."""
     import kconfiglib  # type: ignore[import-untyped]
+
     sym = MagicMock(spec=kconfiglib.Symbol)
     sym.name = "y"
     return sym
@@ -45,6 +46,7 @@ class TestCollectDepSymbols:
         import kconfiglib  # type: ignore[import-untyped]
 
         from zephyr_cli.west_agent.inspect.kconfig import _collect_dep_symbols
+
         sym = MagicMock(spec=kconfiglib.Symbol)
         sym.name = "FOO"
         result = _collect_dep_symbols(sym)
@@ -134,7 +136,9 @@ class TestCollectDepSymbols:
 class TestSymbolToDict:
     """Tests for symbol_to_dict using mocked kconfiglib symbols."""
 
-    def _make_sym(self, name: str, value: str, orig_type=None, nodes=None, direct_dep=None, defaults=None):
+    def _make_sym(
+        self, name: str, value: str, orig_type=None, nodes=None, direct_dep=None, defaults=None
+    ):
         kconfiglib = pytest.importorskip("kconfiglib")
         sym = MagicMock(spec=kconfiglib.Symbol)
         sym.name = name
@@ -159,7 +163,9 @@ class TestSymbolToDict:
         pytest.importorskip("kconfiglib")
         from zephyr_cli.west_agent.inspect.kconfig import symbol_to_dict
 
-        node = SimpleNamespace(filename="Kconfig", linenr=42, prompt=("BT", None), help="Enable Bluetooth")
+        node = SimpleNamespace(
+            filename="Kconfig", linenr=42, prompt=("BT", None), help="Enable Bluetooth"
+        )
         sym = self._make_sym("BT", "y", nodes=[node])
         result = symbol_to_dict(sym)
         assert result["location"] == "Kconfig:42"
@@ -311,7 +317,7 @@ class TestLoadKconfig:
 
         zephyr_base = tmp_path / "zephyr"
         (zephyr_base / "scripts" / "kconfig").mkdir(parents=True)
-        (zephyr_base / "Kconfig").write_text("mainmenu \"Zephyr\"\n")
+        (zephyr_base / "Kconfig").write_text('mainmenu "Zephyr"\n')
 
         build_dir = tmp_path / "build"
         (build_dir / "Kconfig").mkdir(parents=True)
@@ -320,13 +326,14 @@ class TestLoadKconfig:
         dot_config.write_text("CONFIG_LOG=y\n")
 
         calls: dict = {}
+        srctree_env = "srctree"
 
         class FakeKconfig:
             def __init__(self, filename, warn=False, warn_to_stderr=False):
                 calls["filename"] = filename
                 calls["env"] = {
                     "ZEPHYR_BASE": os.environ.get("ZEPHYR_BASE"),
-                    "srctree": os.environ.get("srctree"),
+                    srctree_env: os.environ.get(srctree_env),
                     "KCONFIG_BINARY_DIR": os.environ.get("KCONFIG_BINARY_DIR"),
                     "KCONFIG_DOC_MODE": os.environ.get("KCONFIG_DOC_MODE"),
                 }
@@ -336,7 +343,7 @@ class TestLoadKconfig:
 
         monkeypatch.setitem(sys.modules, "kconfiglib", SimpleNamespace(Kconfig=FakeKconfig))
         monkeypatch.delenv("ZEPHYR_BASE", raising=False)
-        monkeypatch.delenv("srctree", raising=False)
+        monkeypatch.delenv(srctree_env, raising=False)
         monkeypatch.delenv("KCONFIG_BINARY_DIR", raising=False)
         monkeypatch.delenv("KCONFIG_DOC_MODE", raising=False)
 
@@ -346,12 +353,12 @@ class TestLoadKconfig:
         assert calls["config"] == str(dot_config)
         assert calls["env"] == {
             "ZEPHYR_BASE": str(zephyr_base),
-            "srctree": str(zephyr_base),
+            srctree_env: str(zephyr_base),
             "KCONFIG_BINARY_DIR": str(build_dir / "Kconfig"),
             "KCONFIG_DOC_MODE": "1",
         }
         assert os.environ.get("ZEPHYR_BASE") is None
-        assert os.environ.get("srctree") is None
+        assert os.environ.get(srctree_env) is None
         assert os.environ.get("KCONFIG_BINARY_DIR") is None
         assert os.environ.get("KCONFIG_DOC_MODE") is None
 
@@ -360,9 +367,9 @@ class TestLoadKconfig:
 
         zephyr_base = tmp_path / "zephyr"
         (zephyr_base / "scripts" / "kconfig").mkdir(parents=True)
-        (zephyr_base / "Kconfig").write_text("mainmenu \"Zephyr\"\n")
+        (zephyr_base / "Kconfig").write_text('mainmenu "Zephyr"\n')
         (zephyr_base / "modules" / "hal_espressif").mkdir(parents=True)
-        (zephyr_base / "modules" / "hal_espressif" / "Kconfig").write_text("menu \"ext\"\n")
+        (zephyr_base / "modules" / "hal_espressif" / "Kconfig").write_text('menu "ext"\n')
 
         build_dir = tmp_path / "build"
         (build_dir / "Kconfig").mkdir(parents=True)
@@ -396,4 +403,3 @@ class TestLoadKconfig:
         assert calls["config"] == str(dot_config)
         assert calls["module_kconfig"] == str(zephyr_base / "modules" / "hal_espressif" / "Kconfig")
         assert os.environ.get("ZEPHYR_HAL_ESPRESSIF_KCONFIG") is None
-

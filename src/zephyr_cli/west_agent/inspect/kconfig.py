@@ -12,9 +12,9 @@ import re
 import sys
 from pathlib import Path
 
-
 _KCONFIG_EXT_VAR_RE = re.compile(r"\$\((ZEPHYR_[A-Z0-9_]+_KCONFIG)\)")
 _KCONFIG_MODULE_DIR_RE = re.compile(r"(ZEPHYR_[A-Z0-9_]+_MODULE_DIR)=([^\s\)]+)")
+_KCONFIG_SRCTREE_ENV = "srctree"
 
 
 def _load_module_dir_env(build_dir: Path) -> dict[str, str]:
@@ -69,6 +69,7 @@ def _resolve_module_kconfig_env(zephyr_base: str, build_dir: Path) -> dict[str, 
 
     return resolved
 
+
 # ---------------------------------------------------------------------------
 # Kconfig loading
 # ---------------------------------------------------------------------------
@@ -100,7 +101,7 @@ def load_kconfig(zephyr_base: str, build_dir: Path, dot_config: Path):  # type: 
 
     saved_env = {
         "ZEPHYR_BASE": os.environ.get("ZEPHYR_BASE"),
-        "srctree": os.environ.get("srctree"),
+        _KCONFIG_SRCTREE_ENV: os.environ.get(_KCONFIG_SRCTREE_ENV),
         "KCONFIG_BINARY_DIR": os.environ.get("KCONFIG_BINARY_DIR"),
         "KCONFIG_DOC_MODE": os.environ.get("KCONFIG_DOC_MODE"),
     }
@@ -108,7 +109,7 @@ def load_kconfig(zephyr_base: str, build_dir: Path, dot_config: Path):  # type: 
         saved_env[key] = os.environ.get(key)
 
     os.environ["ZEPHYR_BASE"] = zephyr_base
-    os.environ["srctree"] = zephyr_base
+    os.environ[_KCONFIG_SRCTREE_ENV] = zephyr_base
     os.environ["KCONFIG_BINARY_DIR"] = str(build_dir / "Kconfig")
     os.environ["KCONFIG_DOC_MODE"] = "1"  # suppress missing-source warnings
     os.environ.update(module_kconfig_env)
