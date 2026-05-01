@@ -5,11 +5,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-# Zephyr thread stack symbol patterns
-# K_THREAD_STACK_DEFINE emits: z_<name>_stack or <name>_stack
-# Z_THREAD_STACK_DEFINE emits similar patterns
-_STACK_SYMBOL_RE = re.compile(
-    r"^(?:z_)?(?P<name>.+?)(?:_stack|_thread_stack)$"
+# Zephyr thread stack symbol patterns.
+# Current Zephyr builds emit both legacy stack symbols like z_main_stack and
+# static thread symbols like _k_thread_stack_<thread_name> for K_THREAD_DEFINE.
+_STACK_SYMBOL_PATTERNS = (
+    re.compile(r"^(?:z_)?(?P<name>.+?)(?:_stack|_thread_stack)$"),
+    re.compile(r"^_k_thread_stack_(?P<name>.+)$"),
 )
 
 # Known fixed thread names
@@ -21,6 +22,20 @@ _KNOWN_THREADS: dict[str, str] = {
     "z_logging_thread_stack": "logging",
     "z_shell_stack": "shell",
 }
+
+
+def _match_thread_stack_symbol(name: str) -> str | None:
+    """Return a friendly thread name for a recognized stack symbol."""
+    friendly = _KNOWN_THREADS.get(name)
+    if friendly is not None:
+        return friendly
+
+    for pattern in _STACK_SYMBOL_PATTERNS:
+        match = pattern.match(name)
+        if match:
+            return match.group("name").removeprefix("z_")
+
+    return None
 
 
 def analyze_threads(elf_path: Path) -> dict:
@@ -58,26 +73,11 @@ def analyze_threads(elf_path: Path) -> dict:
                 if size == 0:
                     continue
 
-                # Check known fixed thread stacks first
-                friendly = _KNOWN_THREADS.get(name)
+                friendly = _match_thread_stack_symbol(name)
                 if friendly:
                     threads.append(
                         {
                             "name": friendly,
-                            "stack_symbol": name,
-                            "stack_size_bytes": size,
-                            "estimated_usage_bytes": None,
-                        }
-                    )
-                    continue
-
-                # Match generic stack symbol pattern
-                m = _STACK_SYMBOL_RE.match(name)
-                if m:
-                    raw_name = m.group("name").lstrip("z_")
-                    threads.append(
-                        {
-                            "name": raw_name,
                             "stack_symbol": name,
                             "stack_size_bytes": size,
                             "estimated_usage_bytes": None,
