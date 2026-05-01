@@ -147,6 +147,9 @@ def load_edt(build_dir: Path, zephyr_base: str):
     dts_scripts = Path(zephyr_base) / "scripts" / "dts"
     if dts_scripts.exists() and str(dts_scripts) not in sys.path:
         sys.path.insert(0, str(dts_scripts))
+    python_devicetree = dts_scripts / "python-devicetree" / "src"
+    if python_devicetree.exists() and str(python_devicetree) not in sys.path:
+        sys.path.insert(0, str(python_devicetree))
 
     edt_pickle = build_dir / "zephyr" / "edt.pickle"
     zephyr_dts = build_dir / "zephyr" / "zephyr.dts"

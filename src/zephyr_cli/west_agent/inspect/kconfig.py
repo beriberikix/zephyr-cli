@@ -167,7 +167,10 @@ def symbol_to_dict(sym) -> dict:  # type: ignore[return]
 
     # Default values (first defaults that is reachable)
     defaults: list[str] = []
-    for dflt, _cond in getattr(sym, "defaults", []):
+    for default_entry in getattr(sym, "defaults", []):
+        if not default_entry:
+            continue
+        dflt = default_entry[0]
         with contextlib.suppress(Exception):
             defaults.append(kconfiglib.expr_str(dflt))
 

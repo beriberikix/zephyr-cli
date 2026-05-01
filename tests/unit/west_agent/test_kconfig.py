@@ -209,6 +209,16 @@ class TestSymbolToDict:
         result = symbol_to_dict(sym)
         assert result["type"] == "string"
 
+    def test_defaults_accept_zephyr_three_tuple_shape(self):
+        kconfiglib = pytest.importorskip("kconfiglib")
+        from zephyr_cli.west_agent.inspect.kconfig import symbol_to_dict
+
+        default_sym = MagicMock(spec=kconfiglib.Symbol)
+        default_sym.name = "DEFAULT_LOG"
+        sym = self._make_sym("LOG", "y", defaults=[(default_sym, "COND", None)])
+        result = symbol_to_dict(sym)
+        assert result["defaults"]
+
 
 # ---------------------------------------------------------------------------
 # search_symbols / changed_symbols

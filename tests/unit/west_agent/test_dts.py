@@ -226,7 +226,9 @@ class TestLoadEdt:
 
         zephyr_base = tmp_path / "zephyr"
         dts_scripts = zephyr_base / "scripts" / "dts"
+        python_devicetree = dts_scripts / "python-devicetree" / "src"
         dts_scripts.mkdir(parents=True)
+        python_devicetree.mkdir(parents=True)
 
         build_dir = tmp_path / "build"
         edt_pickle = build_dir / "zephyr" / "edt.pickle"
@@ -237,6 +239,7 @@ class TestLoadEdt:
 
         def fake_load(_fh):
             assert str(dts_scripts) in sys.path
+            assert str(python_devicetree) in sys.path
             return sentinel
 
         monkeypatch.setattr(pickle, "load", fake_load)
