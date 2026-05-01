@@ -60,9 +60,12 @@ class TestCreateBoardValidation:
         result = runner.invoke(
             app,
             [
-                "create", "test-proj2",
-                "--board", "esp32s3_devkitc/esp32s3/procpu",
-                "--output-dir", str(tmp_path),
+                "create",
+                "test-proj2",
+                "--board",
+                "esp32s3_devkitc/esp32s3/procpu",
+                "--output-dir",
+                str(tmp_path),
             ],
         )
         assert result.exit_code == 0

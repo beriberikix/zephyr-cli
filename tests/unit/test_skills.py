@@ -168,16 +168,12 @@ class TestSuggestSkills:
         assert results[0].name == "build-system"
 
     def test_kconfig_pattern_match(self, sample_index):
-        results = suggest_skills(
-            sample_index, "", kconfig_symbols=["CONFIG_BT_ENABLED"]
-        )
+        results = suggest_skills(sample_index, "", kconfig_symbols=["CONFIG_BT_ENABLED"])
         names = [s.name for s in results]
         assert "connectivity-ble" in names
 
     def test_dts_compatible_match(self, sample_index):
-        results = suggest_skills(
-            sample_index, "", dts_compatibles=["jedec,spi-nor"]
-        )
+        results = suggest_skills(sample_index, "", dts_compatibles=["jedec,spi-nor"])
         names = [s.name for s in results]
         assert "storage" in names
 

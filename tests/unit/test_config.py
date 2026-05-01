@@ -48,10 +48,7 @@ class TestEnvVarOverride:
     def test_no_env_vars_leaves_defaults(self):
         cfg = ZephyrCliConfig()
         # Patch out all relevant env vars
-        clean_env = {
-            k: v for k, v in os.environ.items()
-            if not k.startswith("ZEPHYR_CLI_")
-        }
+        clean_env = {k: v for k, v in os.environ.items() if not k.startswith("ZEPHYR_CLI_")}
         with patch.dict(os.environ, clean_env, clear=True):
             _apply_env(cfg)
         assert cfg.sdk_path is None

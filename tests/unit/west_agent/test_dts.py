@@ -245,4 +245,3 @@ class TestLoadEdt:
         monkeypatch.setattr(pickle, "load", fake_load)
 
         assert load_edt(build_dir, str(zephyr_base)) is sentinel
-

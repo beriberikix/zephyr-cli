@@ -123,9 +123,7 @@ def parse_build_output(
                     )
                 )
             elif kind == "warning":
-                warnings.append(
-                    BuildWarning(file=file_path, line=lineno, column=col, message=msg)
-                )
+                warnings.append(BuildWarning(file=file_path, line=lineno, column=col, message=msg))
             continue
 
         cm = _CMAKE_ERROR_RE.match(line)

@@ -108,9 +108,7 @@ def fetch_available(limit: int = 10) -> list[SdkRelease]:
                 else:
                     url = asset["browser_download_url"]
         if url:
-            releases.append(
-                SdkRelease(version=version, url=url, minimal_url=minimal_url)
-            )
+            releases.append(SdkRelease(version=version, url=url, minimal_url=minimal_url))
 
     return releases
 
@@ -124,9 +122,7 @@ def install_sdk(cfg: ZephyrCliConfig, version: str, minimal: bool = False) -> In
     """Download, extract, and set up a Zephyr SDK version."""
     available = fetch_available(limit=20)
     ver_norm = version.lstrip("v")
-    match = next(
-        (r for r in available if r.version == ver_norm or r.version == version), None
-    )
+    match = next((r for r in available if r.version == ver_norm or r.version == version), None)
     if match is None:
         raise ValueError(f"SDK version {version!r} not found in recent GitHub releases")
 
@@ -150,8 +146,7 @@ def install_sdk(cfg: ZephyrCliConfig, version: str, minimal: bool = False) -> In
     dest = base / f"zephyr-sdk-{ver_norm}"
     if not dest.exists():
         candidates = sorted(
-            d for d in base.iterdir()
-            if d.is_dir() and d.name.startswith(f"zephyr-sdk-{ver_norm}")
+            d for d in base.iterdir() if d.is_dir() and d.name.startswith(f"zephyr-sdk-{ver_norm}")
         )
         if candidates:
             candidates[0].rename(dest)

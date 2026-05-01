@@ -40,6 +40,4 @@ class TestWestAgentDiscoverability:
         )
         expected_subcommands = ["build", "inspect", "emulate", "test", "flash", "debug"]
         for sub in expected_subcommands:
-            assert sub in result.stdout, (
-                f"Subcommand '{sub}' not found in 'west help agent' output"
-            )
+            assert sub in result.stdout, f"Subcommand '{sub}' not found in 'west help agent' output"

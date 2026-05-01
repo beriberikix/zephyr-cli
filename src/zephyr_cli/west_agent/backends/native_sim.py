@@ -57,9 +57,17 @@ class NativeSimBackend(EmulationBackend):
             duration = time.monotonic() - start
             captured: str = ""
             if exc.stdout:
-                captured += exc.stdout if isinstance(exc.stdout, str) else exc.stdout.decode(errors="replace")
+                captured += (
+                    exc.stdout
+                    if isinstance(exc.stdout, str)
+                    else exc.stdout.decode(errors="replace")
+                )
             if exc.stderr:
-                captured += exc.stderr if isinstance(exc.stderr, str) else exc.stderr.decode(errors="replace")
+                captured += (
+                    exc.stderr
+                    if isinstance(exc.stderr, str)
+                    else exc.stderr.decode(errors="replace")
+                )
             if captured.strip() and not exc.stderr:
                 return EmulateResult(
                     status=EmulateStatus.SESSION_CAPPED,

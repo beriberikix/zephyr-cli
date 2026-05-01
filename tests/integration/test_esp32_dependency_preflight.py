@@ -14,8 +14,7 @@ class TestBoardDependencyPreflight:
         board_dir = zephyr_base / "boards" / "espressif" / "esp32s3_devkitc"
         board_dir.mkdir(parents=True)
         (board_dir / "board.cmake").write_text(
-            "board_set_flashrunner(esp32)\n"
-            "board_set_debugrunner(openocd)\n"
+            "board_set_flashrunner(esp32)\nboard_set_debugrunner(openocd)\n"
         )
         monkeypatch.setenv("ZEPHYR_BASE", str(zephyr_base))
         monkeypatch.setattr("shutil.which", lambda t: None)
@@ -33,9 +32,7 @@ class TestBoardDependencyPreflight:
         zephyr_base = tmp_path / "zephyr"
         board_dir = zephyr_base / "boards" / "nordic" / "nrf52840dk"
         board_dir.mkdir(parents=True)
-        (board_dir / "board.cmake").write_text(
-            "board_set_flashrunner(nrfjprog)\n"
-        )
+        (board_dir / "board.cmake").write_text("board_set_flashrunner(nrfjprog)\n")
         monkeypatch.setenv("ZEPHYR_BASE", str(zephyr_base))
 
         # nrfjprog not installed
@@ -52,9 +49,7 @@ class TestBoardDependencyPreflight:
         zephyr_base = tmp_path / "zephyr"
         board_dir = zephyr_base / "boards" / "nordic" / "nrf52840dk"
         board_dir.mkdir(parents=True)
-        (board_dir / "board.cmake").write_text(
-            "board_set_flashrunner(jlink)\n"
-        )
+        (board_dir / "board.cmake").write_text("board_set_flashrunner(jlink)\n")
         monkeypatch.setenv("ZEPHYR_BASE", str(zephyr_base))
         monkeypatch.setattr("shutil.which", lambda t: "/usr/bin/JLinkExe")
 
@@ -67,7 +62,7 @@ class TestBoardDependencyPreflight:
 
         stderr = (
             "Traceback (most recent call last):\n"
-            "  File \"/zephyr/scripts/west_commands/runners/esp32.py\", line 7\n"
+            '  File "/zephyr/scripts/west_commands/runners/esp32.py", line 7\n'
             "ModuleNotFoundError: No module named 'esptool'\n"
         )
         errors, _ = parse_build_output(stderr)

@@ -24,9 +24,7 @@ APP_NAME = "zephyr-cli"
 DEFAULT_SKILLS_REGISTRY_URL = (
     "https://raw.githubusercontent.com/beriberikix/zephyr-agent-skills/main/index.json"
 )
-DEFAULT_DOCS_RELEASE_BASE = (
-    "https://github.com/beriberikix/zephyrdocs.md/releases/download"
-)
+DEFAULT_DOCS_RELEASE_BASE = "https://github.com/beriberikix/zephyrdocs.md/releases/download"
 WORKSPACE_CONFIG_RELPATH = ".zephyr/config.toml"
 SKILLS_DIR_RELPATH = ".zephyr/skills"
 

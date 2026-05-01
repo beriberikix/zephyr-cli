@@ -6,8 +6,8 @@ All commands support --format json (default in non-TTY) and --format human.
 from __future__ import annotations
 
 import json
-from pprint import pformat
 import sys
+from pprint import pformat
 from typing import Any
 
 from pydantic import BaseModel
@@ -52,6 +52,7 @@ def emit_error(message: str, fmt: str | None = None) -> None:
     else:
         try:
             from rich.console import Console
+
             Console(stderr=True).print(f"[red]Error:[/red] {message}")
         except ImportError:
             print(f"Error: {message}", file=sys.stderr)

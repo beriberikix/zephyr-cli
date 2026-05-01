@@ -40,7 +40,9 @@ config:
 """
 
 
-def _make_build_dir(base: Path, *, with_elf: bool = True, with_exe: bool = False, runners_yaml: str | None = None) -> Path:
+def _make_build_dir(
+    base: Path, *, with_elf: bool = True, with_exe: bool = False, runners_yaml: str | None = None
+) -> Path:
     zephyr = base / "zephyr"
     zephyr.mkdir(parents=True)
     if with_elf:
@@ -188,7 +190,9 @@ class TestQemuBackend:
         from zephyr_cli.west_agent.backends.qemu import QemuBackend
 
         bd = _make_build_dir(tmp_path)
-        with patch("zephyr_cli.west_agent.backends.qemu.subprocess.run", side_effect=FileNotFoundError):
+        with patch(
+            "zephyr_cli.west_agent.backends.qemu.subprocess.run", side_effect=FileNotFoundError
+        ):
             result = QemuBackend().run(bd, timeout=10.0, extra_args=[])
 
         assert result.status == EmulateStatus.ERROR
@@ -247,7 +251,9 @@ class TestNativeSimBackend:
         mock_result.stdout = "PASS - test suite passed\n"
         mock_result.stderr = ""
 
-        with patch("zephyr_cli.west_agent.backends.native_sim.subprocess.run", return_value=mock_result):
+        with patch(
+            "zephyr_cli.west_agent.backends.native_sim.subprocess.run", return_value=mock_result
+        ):
             result = NativeSimBackend().run(bd, timeout=10.0, extra_args=[])
 
         assert result.status == EmulateStatus.SUCCESS
@@ -263,7 +269,9 @@ class TestNativeSimBackend:
         mock_result.stdout = ""
         mock_result.stderr = "FAIL - assertion at line 42\n"
 
-        with patch("zephyr_cli.west_agent.backends.native_sim.subprocess.run", return_value=mock_result):
+        with patch(
+            "zephyr_cli.west_agent.backends.native_sim.subprocess.run", return_value=mock_result
+        ):
             result = NativeSimBackend().run(bd, timeout=10.0, extra_args=[])
 
         assert result.status == EmulateStatus.ERROR
@@ -302,11 +310,15 @@ class TestNativeSimBackend:
         from zephyr_cli.west_agent.backends.native_sim import NativeSimBackend
 
         bd = _make_build_dir(tmp_path, with_exe=True)
-        with patch("zephyr_cli.west_agent.backends.native_sim.subprocess.run", side_effect=PermissionError):
+        with patch(
+            "zephyr_cli.west_agent.backends.native_sim.subprocess.run", side_effect=PermissionError
+        ):
             result = NativeSimBackend().run(bd, timeout=10.0, extra_args=[])
 
         assert result.status == EmulateStatus.ERROR
-        assert "chmod" in (result.error or "").lower() or "permission" in (result.error or "").lower()
+        assert (
+            "chmod" in (result.error or "").lower() or "permission" in (result.error or "").lower()
+        )
 
     def test_run_zero_timeout_means_no_limit(self, tmp_path):
         from zephyr_cli.west_agent.backends.native_sim import NativeSimBackend
@@ -323,7 +335,9 @@ class TestNativeSimBackend:
             captured_kwargs.update(kwargs)
             return mock_result
 
-        with patch("zephyr_cli.west_agent.backends.native_sim.subprocess.run", side_effect=fake_run):
+        with patch(
+            "zephyr_cli.west_agent.backends.native_sim.subprocess.run", side_effect=fake_run
+        ):
             NativeSimBackend().run(bd, timeout=0.0, extra_args=[])
 
         assert captured_kwargs.get("timeout") is None

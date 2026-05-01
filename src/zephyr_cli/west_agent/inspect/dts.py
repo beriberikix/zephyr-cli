@@ -42,9 +42,7 @@ def _format_interrupts(irqs) -> list[dict]:
             entry["name"] = name
         data = getattr(irq, "data", {})
         if data:
-            entry["data"] = {
-                k: (hex(v) if isinstance(v, int) else v) for k, v in data.items()
-            }
+            entry["data"] = {k: (hex(v) if isinstance(v, int) else v) for k, v in data.items()}
         result.append(entry)
     return result
 
@@ -67,8 +65,7 @@ def node_to_dict(node) -> dict:
                     val = val.hex()
                 elif isinstance(val, list):
                     val = [
-                        item.hex() if isinstance(item, (bytes, bytearray)) else item
-                        for item in val
+                        item.hex() if isinstance(item, (bytes, bytearray)) else item for item in val
                     ]
                 props[name] = val
             except Exception:

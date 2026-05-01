@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from importlib import metadata, util
 import os
 import shutil
 import subprocess
 import sys
+from importlib import metadata, util
 from pathlib import Path
 
 from zephyr_cli.schemas.env import EnvResult, SDKInfo, ToolInfo, WestInfo
@@ -26,9 +26,7 @@ _ZEPHYR_ENV_VARS = [
 
 def _run_version(cmd: list[str]) -> str | None:
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             return result.stdout.strip().splitlines()[0]
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
@@ -163,9 +161,7 @@ def _sdk_info() -> SDKInfo:
             version = version_file.read_text().strip()
             # List installed toolchain directories
             toolchains = sorted(
-                d.name
-                for d in candidate.iterdir()
-                if d.is_dir() and "-zephyr-" in d.name
+                d.name for d in candidate.iterdir() if d.is_dir() and "-zephyr-" in d.name
             )
             return SDKInfo(
                 version=version,
@@ -212,11 +208,7 @@ def _west_agent_available() -> tuple[bool, str | None]:
 def _installed_skills(skills_dir: Path | None) -> list[str]:
     if skills_dir is None or not skills_dir.is_dir():
         return []
-    return sorted(
-        d.name
-        for d in skills_dir.iterdir()
-        if d.is_dir() and (d / "SKILL.md").exists()
-    )
+    return sorted(d.name for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").exists())
 
 
 def collect_env(skills_dir: Path | None = None) -> EnvResult:
@@ -243,6 +235,7 @@ def collect_env(skills_dir: Path | None = None) -> EnvResult:
     # Resolve skills dir
     if skills_dir is None and ws_root:
         from zephyr_cli.core.config import SKILLS_DIR_RELPATH
+
         skills_dir = Path(ws_root) / SKILLS_DIR_RELPATH
 
     agent_available, agent_reason = _west_agent_available()

@@ -21,7 +21,9 @@ class TestUpdateCheckFailures:
     """update --check should provide distinct errors for each failure mode."""
 
     def test_network_unreachable(self):
-        with patch("zephyr_cli.commands.update.httpx.get", side_effect=httpx.ConnectError("refused")):
+        with patch(
+            "zephyr_cli.commands.update.httpx.get", side_effect=httpx.ConnectError("refused")
+        ):
             result = runner.invoke(app, ["update", "--check"])
         assert result.exit_code != 0
         data = json.loads(result.output)
@@ -63,7 +65,9 @@ class TestUpdateCheckFailures:
         assert "install from source" in data["next_action"].lower()
 
     def test_malformed_response(self):
-        mock_resp = httpx.Response(200, json={"unexpected": "data"}, request=httpx.Request("GET", "https://pypi.org"))
+        mock_resp = httpx.Response(
+            200, json={"unexpected": "data"}, request=httpx.Request("GET", "https://pypi.org")
+        )
         with patch("zephyr_cli.commands.update.httpx.get", return_value=mock_resp):
             result = runner.invoke(app, ["update", "--check"])
         assert result.exit_code != 0

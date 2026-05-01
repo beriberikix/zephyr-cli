@@ -38,7 +38,9 @@ def _fmt(ctx: typer.Context) -> str:
 @app.command("list")
 def skills_list(
     ctx: typer.Context,
-    installed_only: Annotated[bool, typer.Option("--installed", help="Only show installed skills.")] = False,
+    installed_only: Annotated[
+        bool, typer.Option("--installed", help="Only show installed skills.")
+    ] = False,
     fmt: Annotated[str, typer.Option("--format", "-f", help="Output format: json|human.")] = "json",
 ) -> None:
     """List available skills from the registry and installed skills."""
@@ -74,7 +76,9 @@ def skills_list(
 def skills_install(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Skill name to install (e.g. 'build-system').")],
-    force: Annotated[bool, typer.Option("--force", help="Re-install even if already present.")] = False,
+    force: Annotated[
+        bool, typer.Option("--force", help="Re-install even if already present.")
+    ] = False,
     fmt: Annotated[str, typer.Option("--format", "-f")] = "json",
 ) -> None:
     """Install a skill into the current workspace."""
@@ -147,7 +151,9 @@ def skills_show(
 
     skill = next((s for s in index.skills if s.name == name), None)
     if skill is None:
-        emit_error(f"Skill '{name}' not found. Run 'zephyr-cli skills list' to see all skills.", fmt=fmt)
+        emit_error(
+            f"Skill '{name}' not found. Run 'zephyr-cli skills list' to see all skills.", fmt=fmt
+        )
         raise typer.Exit(1)
 
     emit({"status": "ok", "skill": skill.model_dump()}, fmt=fmt)
@@ -164,7 +170,9 @@ def skills_suggest(
     query: Annotated[str, typer.Argument(help="Free-text query describing your task.")],
     kconfig: Annotated[
         str | None,
-        typer.Option("--kconfig", help="Comma-separated CONFIG_* symbols to match against triggers."),
+        typer.Option(
+            "--kconfig", help="Comma-separated CONFIG_* symbols to match against triggers."
+        ),
     ] = None,
     dts: Annotated[
         str | None,

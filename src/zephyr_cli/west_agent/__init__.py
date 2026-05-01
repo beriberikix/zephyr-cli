@@ -27,7 +27,11 @@ from west.commands import WestCommand
 
 from zephyr_cli.west_agent.runners import (
     default_runner as _parsed_default_runner,
+)
+from zephyr_cli.west_agent.runners import (
     runner_config_list as _parsed_runner_config_list,
+)
+from zephyr_cli.west_agent.runners import (
     runner_config_value as _parsed_runner_config_value,
 )
 
@@ -147,9 +151,7 @@ def _preflight_board_deps(board: str | None) -> list[dict[str, str]]:
 
     # Parse board.cmake for default runner
     board_cmake = board_dir / "board.cmake"
-    runner_re = re.compile(
-        r"board_set_(?:flash|debug)runner\((\w+)\)", re.IGNORECASE
-    )
+    runner_re = re.compile(r"board_set_(?:flash|debug)runner\((\w+)\)", re.IGNORECASE)
     runners: set[str] = set()
     try:
         for cmake_line in board_cmake.read_text().splitlines():
@@ -175,12 +177,14 @@ def _preflight_board_deps(board: str | None) -> list[dict[str, str]]:
     for runner in runners:
         tool = runner_to_tool.get(runner, runner)
         if shutil.which(tool) is None:
-            warnings.append({
-                "runner": runner,
-                "tool": tool,
-                "message": f"Flash/debug runner '{runner}' requires '{tool}' which is not on PATH.",
-                "remediation": f"Install {tool} or configure a different runner with --runner.",
-            })
+            warnings.append(
+                {
+                    "runner": runner,
+                    "tool": tool,
+                    "message": f"Flash/debug runner '{runner}' requires '{tool}' which is not on PATH.",
+                    "remediation": f"Install {tool} or configure a different runner with --runner.",
+                }
+            )
 
     return warnings
 
@@ -270,7 +274,9 @@ def _missing_openocd_script_error(build_dir: Path) -> dict[str, object] | None:
     }
 
 
-def _native_runner_error(build_dir: Path, operation: str, runner: str | None = None) -> dict[str, str | None] | None:
+def _native_runner_error(
+    build_dir: Path, operation: str, runner: str | None = None
+) -> dict[str, str | None] | None:
     """Return a structured error when a native runner would block interactively."""
     resolved_runner = runner or _default_runner(build_dir, operation)
     if resolved_runner != "native":
@@ -295,6 +301,8 @@ def _native_runner_error(build_dir: Path, operation: str, runner: str | None = N
         "runner": resolved_runner,
         "hint": hint,
     }
+
+
 # Entry point: single 'west agent' command with subcommands
 # ---------------------------------------------------------------------------
 
@@ -355,12 +363,14 @@ class AgentCommand(WestCommand):
         build_p = sub.add_parser("build", help="Build the application.")
         build_p.add_argument("--board", "-b", help="Board target (e.g. nrf52840dk/nrf52840).")
         build_p.add_argument(
-            "--build-dir", "-d",
+            "--build-dir",
+            "-d",
             default=None,
             help="Build directory. Defaults to build/<board-slug>.",
         )
         build_p.add_argument(
-            "--pristine", "-p",
+            "--pristine",
+            "-p",
             action="store_true",
             help="Clean build (passes -p to west build).",
         )
@@ -370,87 +380,107 @@ class AgentCommand(WestCommand):
             help="Extra Kconfig .conf file (passed via OVERLAY_CONFIG).",
         )
         build_p.add_argument(
-            "--source-dir", "-s",
+            "--source-dir",
+            "-s",
             default=None,
             help="Application source directory. Defaults to current directory.",
         )
 
         # --- inspect ---
         inspect_p = sub.add_parser("inspect", help="Introspect workspace artifacts.")
-        inspect_sub = inspect_p.add_subparsers(
-            dest="inspect_target", metavar="TARGET"
-        )
+        inspect_sub = inspect_p.add_subparsers(dest="inspect_target", metavar="TARGET")
         inspect_sub.required = True
 
         kconfig_p = inspect_sub.add_parser("kconfig", help="Dump resolved Kconfig.")
         kconfig_p.add_argument(
-            "--symbol", metavar="SYM",
+            "--symbol",
+            metavar="SYM",
             help="Filter to a single Kconfig symbol (e.g. CONFIG_BT).",
         )
         kconfig_p.add_argument(
-            "--search", metavar="PATTERN",
+            "--search",
+            metavar="PATTERN",
             help="Regex to search symbol names (e.g. 'BT_.*').",
         )
         kconfig_p.add_argument(
-            "--changed", action="store_true",
+            "--changed",
+            action="store_true",
             help="Show only symbols explicitly set (non-default, non-n).",
         )
         kconfig_p.add_argument(
-            "--build-dir", "-d", default=None,
+            "--build-dir",
+            "-d",
+            default=None,
             help="Build directory containing .config.",
         )
 
         dts_p = inspect_sub.add_parser("dts", help="Dump merged Devicetree as JSON.")
         dts_p.add_argument(
-            "--node", metavar="PATH",
+            "--node",
+            metavar="PATH",
             help="Filter to a specific DTS node path (e.g. /soc/uart@40002000).",
         )
         dts_p.add_argument(
-            "--compatible", metavar="COMPAT",
+            "--compatible",
+            metavar="COMPAT",
             help="Filter to nodes with a specific compatible string.",
         )
         dts_p.add_argument(
-            "--chosen", action="store_true",
+            "--chosen",
+            action="store_true",
             help="Show only the chosen node mappings.",
         )
         dts_p.add_argument(
-            "--build-dir", "-d", default=None,
+            "--build-dir",
+            "-d",
+            default=None,
             help="Build directory containing zephyr.dts / edt.pickle.",
         )
 
         memory_p = inspect_sub.add_parser("memory", help="ROM/RAM section analysis.")
         memory_p.add_argument(
-            "--detailed", action="store_true",
+            "--detailed",
+            action="store_true",
             help="Include per-symbol breakdown.",
         )
         memory_p.add_argument(
-            "--build-dir", "-d", default=None,
+            "--build-dir",
+            "-d",
+            default=None,
             help="Build directory containing zephyr.elf and zephyr.map.",
         )
 
         threads_p = inspect_sub.add_parser("threads", help="Thread stack allocation analysis.")
         threads_p.add_argument(
-            "--build-dir", "-d", default=None,
+            "--build-dir",
+            "-d",
+            default=None,
             help="Build directory containing zephyr.elf.",
         )
 
         modules_p = inspect_sub.add_parser("modules", help="List west modules with metadata.")
         modules_p.add_argument(
-            "--with-paths", action="store_true",
+            "--with-paths",
+            action="store_true",
             help="Include board/DTS/Kconfig root paths from module.yml.",
         )
 
         bindings_p = inspect_sub.add_parser("bindings", help="Search DTS binding definitions.")
         bindings_p.add_argument(
-            "--compatible", metavar="COMPAT",
+            "--compatible",
+            metavar="COMPAT",
             help="Exact compatible string to look up (e.g. 'nordic,nrf-uart').",
         )
         bindings_p.add_argument(
-            "--search", metavar="PATTERN",
+            "--search",
+            metavar="PATTERN",
             help="Regex to search compatible strings.",
         )
         bindings_p.add_argument(
-            "--dir", metavar="PATH", action="append", dest="extra_dirs",
+            "--dir",
+            metavar="PATH",
+            action="append",
+            dest="extra_dirs",
             help="Extra bindings directory to search (may be given multiple times).",
         )
 
@@ -461,20 +491,23 @@ class AgentCommand(WestCommand):
 
         emulate_p = sub.add_parser("emulate", help="Launch an emulator session.")
         emulate_p.add_argument(
-            "--backend", "-B",
+            "--backend",
+            "-B",
             choices=KNOWN_BACKENDS,
             default="auto",
             help="Emulation backend. Defaults to auto-detect.",
         )
         emulate_p.add_argument(
-            "--timeout", "-t",
+            "--timeout",
+            "-t",
             type=float,
             default=30.0,
             metavar="SECONDS",
             help="Kill emulator after SECONDS (0 = no limit). Default: 30.",
         )
         emulate_p.add_argument(
-            "--build-dir", "-d",
+            "--build-dir",
+            "-d",
             default=None,
             help="Build directory. Auto-detected if omitted.",
         )
@@ -487,20 +520,23 @@ class AgentCommand(WestCommand):
         # --- test ---
         test_p = sub.add_parser("test", help="Run tests via Twister.")
         test_p.add_argument(
-            "--platform", "-p",
+            "--platform",
+            "-p",
             action="append",
             dest="platforms",
             metavar="PLATFORM",
             help="Target platform(s) (may be repeated). e.g. qemu_cortex_m3.",
         )
         test_p.add_argument(
-            "--test-dir", "-T",
+            "--test-dir",
+            "-T",
             default=None,
             metavar="DIR",
             help="Directory containing tests (default: current directory).",
         )
         test_p.add_argument(
-            "--outdir", "-O",
+            "--outdir",
+            "-O",
             default="twister-out",
             metavar="DIR",
             help="Twister output directory (default: twister-out).",
@@ -526,13 +562,15 @@ class AgentCommand(WestCommand):
         # --- flash ---
         flash_p = sub.add_parser("flash", help="Flash firmware to target hardware.")
         flash_p.add_argument(
-            "--runner", "-r",
+            "--runner",
+            "-r",
             default=None,
             metavar="RUNNER",
             help="Flash runner (e.g. openocd, jlink, pyocd). Auto-detected if omitted.",
         )
         flash_p.add_argument(
-            "--build-dir", "-d",
+            "--build-dir",
+            "-d",
             default=None,
             help="Build directory. Auto-detected if omitted.",
         )
@@ -571,7 +609,8 @@ class AgentCommand(WestCommand):
             help="Stop RTT streaming after SECONDS of inactivity (default: 30).",
         )
         debug_p.add_argument(
-            "--build-dir", "-d",
+            "--build-dir",
+            "-d",
             default=None,
             help="Build directory. Auto-detected if omitted.",
         )
@@ -597,7 +636,9 @@ class AgentCommand(WestCommand):
         if handler:
             handler(args, fmt)
         else:
-            self._emit({"status": "error", "message": f"Unknown subcommand: {args.subcommand}"}, fmt)
+            self._emit(
+                {"status": "error", "message": f"Unknown subcommand: {args.subcommand}"}, fmt
+            )
             raise SystemExit(1)
 
     # ------------------------------------------------------------------
@@ -708,9 +749,7 @@ class AgentCommand(WestCommand):
             binary = locate_binaries(build_dir)
         else:
             status = BuildStatus.ERROR
-            binary_mod = __import__(
-                "zephyr_cli.schemas.build", fromlist=["BuildBinary"]
-            )
+            binary_mod = __import__("zephyr_cli.schemas.build", fromlist=["BuildBinary"])
             binary = binary_mod.BuildBinary()
 
         output = BuildResult(
@@ -733,8 +772,8 @@ class AgentCommand(WestCommand):
     # ------------------------------------------------------------------
 
     def _run_emulate(self, args: argparse.Namespace, fmt: str) -> None:
-        from zephyr_cli.west_agent.backends.detect import detect_backend
         from zephyr_cli.schemas.emulate import EmulateStatus
+        from zephyr_cli.west_agent.backends.detect import detect_backend
 
         bd = self._require_build_dir(args, fmt)
         assert bd is not None
@@ -869,15 +908,22 @@ class AgentCommand(WestCommand):
                 search_symbols,
                 symbol_to_dict,
             )
+
             kconf = load_kconfig(zephyr_base, bd, dot_config)
         except ImportError as exc:
             self._emit(
-                {"status": "error", "reason": "kconfiglib_not_installed", "hint": "pip install kconfiglib"},
+                {
+                    "status": "error",
+                    "reason": "kconfiglib_not_installed",
+                    "hint": "pip install kconfiglib",
+                },
                 fmt,
             )
             raise SystemExit(1) from exc
         except Exception as exc:
-            self._emit({"status": "error", "reason": "kconfig_load_failed", "message": str(exc)}, fmt)
+            self._emit(
+                {"status": "error", "reason": "kconfig_load_failed", "message": str(exc)}, fmt
+            )
             raise SystemExit(1) from exc
 
         symbol = getattr(args, "symbol", None)
@@ -897,7 +943,13 @@ class AgentCommand(WestCommand):
         elif search:
             symbols = search_symbols(kconf, search, changed_only=changed)
             self._emit(
-                {"status": "ok", "build_dir": str(bd), "pattern": search, "count": len(symbols), "symbols": symbols},
+                {
+                    "status": "ok",
+                    "build_dir": str(bd),
+                    "pattern": search,
+                    "count": len(symbols),
+                    "symbols": symbols,
+                },
                 fmt,
             )
         elif changed:
@@ -1044,8 +1096,13 @@ class AgentCommand(WestCommand):
 
         if not with_paths:
             _path_fields = {
-                "board_root", "dts_root", "snippet_root",
-                "soc_root", "dts_bindings_root", "kconfig", "cmake",
+                "board_root",
+                "dts_root",
+                "snippet_root",
+                "soc_root",
+                "dts_bindings_root",
+                "kconfig",
+                "cmake",
             }
             modules = [{k: v for k, v in m.items() if k not in _path_fields} for m in modules]
 
@@ -1100,6 +1157,7 @@ class AgentCommand(WestCommand):
     def _inspect_env(self, args: argparse.Namespace, fmt: str) -> None:
         """Dump all effective build environment variables."""
         from zephyr_cli.core.env import collect_env
+
         result = collect_env()
         self._emit(result.model_dump(mode="json"), fmt)
 
@@ -1116,7 +1174,11 @@ class AgentCommand(WestCommand):
         zephyr_base = os.environ.get("ZEPHYR_BASE")
         if not zephyr_base:
             self._emit(
-                {"status": "error", "reason": "ZEPHYR_BASE_not_set", "hint": "Source zephyr-env.sh or set ZEPHYR_BASE."},
+                {
+                    "status": "error",
+                    "reason": "ZEPHYR_BASE_not_set",
+                    "hint": "Source zephyr-env.sh or set ZEPHYR_BASE.",
+                },
                 fmt,
             )
             raise SystemExit(1)
@@ -1136,9 +1198,12 @@ class AgentCommand(WestCommand):
         cmd = [
             *west_cmd,
             "twister",
-            "-T", str(Path(test_dir).resolve()),
-            "-O", str(Path(outdir).resolve()),
-            "--timeout-multiplier", str(timeout_mult),
+            "-T",
+            str(Path(test_dir).resolve()),
+            "-O",
+            str(Path(outdir).resolve()),
+            "--timeout-multiplier",
+            str(timeout_mult),
         ]
         for plat in platforms:
             cmd += ["-p", plat]
@@ -1184,8 +1249,10 @@ class AgentCommand(WestCommand):
             except Exception:
                 pass  # fall through with empty suites
 
-        overall = "error" if proc.returncode != 0 else (
-            "failed" if summary.failed or summary.error else "passed"
+        overall = (
+            "error"
+            if proc.returncode != 0
+            else ("failed" if summary.failed or summary.error else "passed")
         )
 
         result = TestResult(
@@ -1431,8 +1498,7 @@ class AgentCommand(WestCommand):
         else:
             try:
                 from rich import print_json
+
                 print_json(json.dumps(data, default=str))
             except ImportError:
                 print(json.dumps(data, indent=2, default=str))
-
-

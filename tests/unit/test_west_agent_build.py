@@ -59,7 +59,7 @@ class TestBuildStatus:
 class TestParseBuildOutputPythonVersion:
     def test_cmake_find_package_python3(self):
         stderr = (
-            'CMake Error at cmake/modules/python.cmake:17:\n'
+            "CMake Error at cmake/modules/python.cmake:17:\n"
             '  Could NOT find Python3: Found unsuitable version "3.8.10", '
             'minimum required is "3.10" (found /usr/bin/python3)\n'
         )

@@ -13,7 +13,7 @@ class TestPythonVersionErrorParsing:
         stderr = (
             "-- The C compiler identification is GNU 12.3.0\n"
             "-- Detecting C compiler ABI info\n"
-            'CMake Error at /zephyr/cmake/modules/python.cmake:17 (find_package):\n'
+            "CMake Error at /zephyr/cmake/modules/python.cmake:17 (find_package):\n"
             '  Could NOT find Python3: Found unsuitable version "3.8.10", '
             'minimum required is "3.10" (found /usr/bin/python3)\n'
             "-- Configuring incomplete, errors occurred!\n"
@@ -36,7 +36,7 @@ class TestPythonVersionErrorParsing:
         """Simulates a missing Python package during build."""
         stderr = (
             "Traceback (most recent call last):\n"
-            "  File \"/zephyr/scripts/gen_kobject_list.py\", line 5, in <module>\n"
+            '  File "/zephyr/scripts/gen_kobject_list.py", line 5, in <module>\n'
             "    No module named 'elftools'\n"
         )
         errors, _ = parse_build_output(stderr)

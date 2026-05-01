@@ -74,12 +74,21 @@ def _parse_map_sections(map_path: Path) -> dict[str, int]:
 
 # Zephyr section → ROM or RAM classification
 _ROM_SECTIONS = {
-    ".text", ".rodata", ".isr_vector", ".ARM.exidx",
-    ".gnu.sgstubs", ".noinit_zephyr_last",
+    ".text",
+    ".rodata",
+    ".isr_vector",
+    ".ARM.exidx",
+    ".gnu.sgstubs",
+    ".noinit_zephyr_last",
 }
 _RAM_SECTIONS = {
-    ".bss", ".data", ".noinit", ".heap", ".stack",
-    "._k_thread_stack_area", "._net_buf_pool_area",
+    ".bss",
+    ".data",
+    ".noinit",
+    ".heap",
+    ".stack",
+    "._k_thread_stack_area",
+    "._net_buf_pool_area",
 }
 
 # Fallback region sizes parsed from ELF LOAD segments (in bytes)
@@ -200,9 +209,7 @@ def analyze_memory(
     if map_path:
         map_sections = _parse_map_sections(map_path)
         # Map file takes precedence for section sizes where it has data
-        section_sizes.update(
-            {k: v for k, v in map_sections.items() if v > 0}
-        )
+        section_sizes.update({k: v for k, v in map_sections.items() if v > 0})
     else:
         warnings.append("No .map file found; section totals may be approximate.")
 
@@ -241,10 +248,7 @@ def analyze_memory(
                         for s in r.sections
                     ]
                     if detailed
-                    else [
-                        {"name": s.name, "bytes": s.bytes}
-                        for s in r.sections
-                    ]
+                    else [{"name": s.name, "bytes": s.bytes} for s in r.sections]
                 ),
             }
             for r in regions

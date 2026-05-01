@@ -52,9 +52,13 @@ def parse_module_yml(module_path: Path) -> dict:
         "name": data.get("name"),
         "kconfig": str(module_path / build["kconfig"]) if build.get("kconfig") else None,
         "cmake": str(module_path / build["cmake"]) if build.get("cmake") else None,
-        "board_root": str(module_path / settings["board_root"]) if settings.get("board_root") else None,
+        "board_root": str(module_path / settings["board_root"])
+        if settings.get("board_root")
+        else None,
         "dts_root": str(module_path / settings["dts_root"]) if settings.get("dts_root") else None,
-        "snippet_root": str(module_path / settings["snippet_root"]) if settings.get("snippet_root") else None,
+        "snippet_root": str(module_path / settings["snippet_root"])
+        if settings.get("snippet_root")
+        else None,
         "soc_root": str(module_path / settings["soc_root"]) if settings.get("soc_root") else None,
     }
 

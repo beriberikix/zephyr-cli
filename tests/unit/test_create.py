@@ -52,7 +52,13 @@ class TestScaffoldT2:
 
     def test_files_list(self, tmp_path):
         _, files = create_project("app", "T2", tmp_path)
-        assert set(files) == {"CMakeLists.txt", "prj.conf", "sysbuild.conf", "src/main.c", "README.rst"}
+        assert set(files) == {
+            "CMakeLists.txt",
+            "prj.conf",
+            "sysbuild.conf",
+            "src/main.c",
+            "README.rst",
+        }
 
 
 class TestScaffoldT3:

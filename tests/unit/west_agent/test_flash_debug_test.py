@@ -28,8 +28,16 @@ SAMPLE_TWISTER_JSON = {
             "reason": "passed",
             "execution_time": 3.14,
             "testcases": [
-                {"identifier": "tests/kernel/common.bitfield", "status": "passed", "execution_time": 0.5},
-                {"identifier": "tests/kernel/common.printk", "status": "passed", "execution_time": 0.3},
+                {
+                    "identifier": "tests/kernel/common.bitfield",
+                    "status": "passed",
+                    "execution_time": 0.5,
+                },
+                {
+                    "identifier": "tests/kernel/common.printk",
+                    "status": "passed",
+                    "execution_time": 0.3,
+                },
             ],
         },
         {
@@ -41,7 +49,12 @@ SAMPLE_TWISTER_JSON = {
             "execution_time": 1.0,
             "testcases": [
                 {"identifier": "tests/net/socket.tcp", "status": "passed", "execution_time": 0.4},
-                {"identifier": "tests/net/socket.udp", "status": "failed", "execution_time": 0.6, "log": "assertion failed"},
+                {
+                    "identifier": "tests/net/socket.udp",
+                    "status": "failed",
+                    "execution_time": 0.6,
+                    "log": "assertion failed",
+                },
             ],
         },
     ],
@@ -56,24 +69,42 @@ def _make_build_dir(base: Path, *, with_elf: bool = True) -> Path:
     return base
 
 
-def _write_runners_yaml(build_dir: Path, *, flash_runner: str | None = None, debug_runner: str | None = None) -> None:
+def _write_runners_yaml(
+    build_dir: Path, *, flash_runner: str | None = None, debug_runner: str | None = None
+) -> None:
     lines = ["# Available runners configured by board.cmake.", "runners:", "- native", ""]
     if flash_runner is not None:
-        lines.extend(["# Default flash runner if --runner is not given.", f"flash-runner: {flash_runner}", ""])
+        lines.extend(
+            [
+                "# Default flash runner if --runner is not given.",
+                f"flash-runner: {flash_runner}",
+                "",
+            ]
+        )
     if debug_runner is not None:
-        lines.extend(["# Default debug runner if --runner is not given.", f"debug-runner: {debug_runner}", ""])
+        lines.extend(
+            [
+                "# Default debug runner if --runner is not given.",
+                f"debug-runner: {debug_runner}",
+                "",
+            ]
+        )
     (build_dir / "zephyr" / "runners.yaml").write_text("\n".join(lines) + "\n")
 
 
-def _write_openocd_runner_config(build_dir: Path, *, board_dir: Path, search_paths: list[Path]) -> None:
+def _write_openocd_runner_config(
+    build_dir: Path, *, board_dir: Path, search_paths: list[Path]
+) -> None:
     runners_yaml = build_dir / "zephyr" / "runners.yaml"
     lines = runners_yaml.read_text().splitlines()
-    lines.extend([
-        "config:",
-        f"  board_dir: {board_dir}",
-        "  openocd_search:",
-        *[f"    - {path}" for path in search_paths],
-    ])
+    lines.extend(
+        [
+            "config:",
+            f"  board_dir: {board_dir}",
+            "  openocd_search:",
+            *[f"    - {path}" for path in search_paths],
+        ]
+    )
     runners_yaml.write_text("\n".join(lines) + "\n")
 
 
@@ -119,10 +150,13 @@ class TestParseTwisterJson:
 
     def test_skipped_counted(self):
         data = {
-            "testsuites": [{
-                "name": "t", "platform": "p",
-                "testcases": [{"identifier": "t.a", "status": "skipped"}],
-            }]
+            "testsuites": [
+                {
+                    "name": "t",
+                    "platform": "p",
+                    "testcases": [{"identifier": "t.a", "status": "skipped"}],
+                }
+            ]
         }
         summary, _ = parse_twister_json(data)
         assert summary.skipped == 1
@@ -187,7 +221,9 @@ class TestFlashResultSchema:
 
 class TestDebugResultSchema:
     def test_server_mode(self):
-        r = DebugResult(status="running", board="nrf52840dk/nrf52840", runner="jlink", pid=1234, gdb_port=2331)
+        r = DebugResult(
+            status="running", board="nrf52840dk/nrf52840", runner="jlink", pid=1234, gdb_port=2331
+        )
         assert r.status == "running"
         assert r.board == "nrf52840dk/nrf52840"
         assert r.runner == "jlink"
@@ -195,7 +231,9 @@ class TestDebugResultSchema:
         assert r.gdb_port == 2331
 
     def test_error_mode(self):
-        r = DebugResult(status="error", board="esp32s3_devkitc", runner="openocd", error="west debug failed")
+        r = DebugResult(
+            status="error", board="esp32s3_devkitc", runner="openocd", error="west debug failed"
+        )
         assert r.status == "error"
         assert r.board == "esp32s3_devkitc"
         assert r.runner == "openocd"
@@ -219,6 +257,7 @@ class TestRunTestHandler:
 
     def _make_args(self, **kwargs):
         import argparse
+
         ns = argparse.Namespace(
             platforms=kwargs.get("platforms", ["qemu_cortex_m3"]),
             test_dir=kwargs.get("test_dir", "."),
@@ -253,7 +292,10 @@ class TestRunTestHandler:
 
         args = self._make_args(outdir=str(outdir))
 
-        with patch("zephyr_cli.west_agent.subprocess.run", return_value=mock_proc), pytest.raises(SystemExit):  # expected: sample has 1 failed case
+        with (
+            patch("zephyr_cli.west_agent.subprocess.run", return_value=mock_proc),
+            pytest.raises(SystemExit),
+        ):  # expected: sample has 1 failed case
             cmd._run_test(args, "json")
 
         assert len(captured) == 1
@@ -273,7 +315,10 @@ class TestRunTestHandler:
 
         args = self._make_args(outdir=str(tmp_path / "twister-out"))
 
-        with patch("zephyr_cli.west_agent.subprocess.run", side_effect=FileNotFoundError), pytest.raises(SystemExit):
+        with (
+            patch("zephyr_cli.west_agent.subprocess.run", side_effect=FileNotFoundError),
+            pytest.raises(SystemExit),
+        ):
             cmd._run_test(args, "json")
 
         assert captured[0]["reason"] == "west_not_found"
@@ -331,6 +376,7 @@ class TestRunTestHandler:
 class TestRunFlashHandler:
     def _make_args(self, build_dir: str, **kwargs):
         import argparse
+
         return argparse.Namespace(
             build_dir=build_dir,
             runner=kwargs.get("runner"),
@@ -368,7 +414,10 @@ class TestRunFlashHandler:
         mock_proc.stdout = ""
         mock_proc.stderr = "No target found\n"
 
-        with patch("zephyr_cli.west_agent.subprocess.run", return_value=mock_proc), pytest.raises(SystemExit):
+        with (
+            patch("zephyr_cli.west_agent.subprocess.run", return_value=mock_proc),
+            pytest.raises(SystemExit),
+        ):
             cmd._run_flash(self._make_args(str(bd)), "json")
 
         assert captured[0]["status"] == "error"
@@ -446,6 +495,7 @@ class TestRunFlashHandler:
 class TestRunDebugHandler:
     def _make_args(self, build_dir: str, **kwargs):
         import argparse
+
         return argparse.Namespace(
             build_dir=build_dir,
             server=kwargs.get("server", False),
@@ -491,7 +541,10 @@ class TestRunDebugHandler:
         mock_proc.stdout = ""
         mock_proc.stderr = "Could not connect to target\n"
 
-        with patch("zephyr_cli.west_agent.subprocess.run", return_value=mock_proc), pytest.raises(SystemExit):
+        with (
+            patch("zephyr_cli.west_agent.subprocess.run", return_value=mock_proc),
+            pytest.raises(SystemExit),
+        ):
             cmd._run_debug(self._make_args(str(bd)), "json")
 
         assert captured[0]["status"] == "error"
@@ -512,7 +565,10 @@ class TestRunDebugHandler:
         mock_popen.pid = 4242
         mock_popen.poll.return_value = None  # still running
 
-        with patch("zephyr_cli.west_agent.subprocess.Popen", return_value=mock_popen), patch("zephyr_cli.west_agent.time.sleep"):
+        with (
+            patch("zephyr_cli.west_agent.subprocess.Popen", return_value=mock_popen),
+            patch("zephyr_cli.west_agent.time.sleep"),
+        ):
             cmd._run_debug(self._make_args(str(bd), server=True), "json")
 
         assert captured[0]["status"] == "running"
@@ -535,7 +591,11 @@ class TestRunDebugHandler:
         mock_popen.poll.return_value = 1  # exited immediately
         mock_popen.communicate.return_value = ("", "debugserver failed")
 
-        with patch("zephyr_cli.west_agent.subprocess.Popen", return_value=mock_popen), patch("zephyr_cli.west_agent.time.sleep"), pytest.raises(SystemExit):
+        with (
+            patch("zephyr_cli.west_agent.subprocess.Popen", return_value=mock_popen),
+            patch("zephyr_cli.west_agent.time.sleep"),
+            pytest.raises(SystemExit),
+        ):
             cmd._run_debug(self._make_args(str(bd), server=True), "json")
 
         assert captured[0]["status"] == "error"
@@ -567,8 +627,7 @@ class TestRunDebugHandler:
         support_dir = board_dir / "support"
         support_dir.mkdir(parents=True)
         (support_dir / "openocd.cfg").write_text(
-            "source [find interface/esp_usb_jtag.cfg]\n"
-            "source [find target/esp32s3.cfg]\n"
+            "source [find interface/esp_usb_jtag.cfg]\nsource [find target/esp32s3.cfg]\n"
         )
 
         scripts_dir = tmp_path / "openocd-scripts"
@@ -740,9 +799,7 @@ class TestPreflightBoardDeps:
         zephyr_base = tmp_path / "zephyr"
         boards = zephyr_base / "boards" / "vendor" / "myboard"
         boards.mkdir(parents=True)
-        (boards / "board.cmake").write_text(
-            "board_set_flashrunner(openocd)\n"
-        )
+        (boards / "board.cmake").write_text("board_set_flashrunner(openocd)\n")
         monkeypatch.setenv("ZEPHYR_BASE", str(zephyr_base))
         # Ensure openocd is not on PATH
         monkeypatch.setattr("shutil.which", lambda t: None)
@@ -758,9 +815,7 @@ class TestPreflightBoardDeps:
         zephyr_base = tmp_path / "zephyr"
         boards = zephyr_base / "boards" / "vendor" / "myboard"
         boards.mkdir(parents=True)
-        (boards / "board.cmake").write_text(
-            "board_set_flashrunner(openocd)\n"
-        )
+        (boards / "board.cmake").write_text("board_set_flashrunner(openocd)\n")
         monkeypatch.setenv("ZEPHYR_BASE", str(zephyr_base))
         monkeypatch.setattr("shutil.which", lambda t: "/usr/bin/openocd")
 

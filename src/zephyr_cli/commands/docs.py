@@ -60,7 +60,9 @@ def docs_refresh(
     ctx: typer.Context,
     version: Annotated[
         str | None,
-        typer.Option("--version", "-v", help="Specific docs version/tag to download. Defaults to latest."),
+        typer.Option(
+            "--version", "-v", help="Specific docs version/tag to download. Defaults to latest."
+        ),
     ] = None,
     fmt: Annotated[str, typer.Option("--format", "-f")] = "json",
 ) -> None:
