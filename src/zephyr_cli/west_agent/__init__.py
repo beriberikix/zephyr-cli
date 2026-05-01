@@ -742,6 +742,24 @@ class AgentCommand(WestCommand):
         duration = time.monotonic() - start
         stderr_combined = result.stderr + result.stdout  # west mixes output
 
+        if result.returncode != 0 and 'unknown command "build"' in stderr_combined:
+            output = BuildResult(
+                status=BuildStatus.ERROR,
+                board=board,
+                build_dir=build_dir,
+                duration_seconds=round(duration, 2),
+                errors=[
+                    BuildError(
+                        message="west does not recognize the 'build' command. Are you in a valid Zephyr workspace?",
+                        error_type="missing_command",
+                        remediation="Ensure you are running inside a west workspace and ZEPHYR_BASE is set.",
+                    )
+                ],
+                raw_stderr=stderr_combined.strip(),
+            )
+            self._emit(output.model_dump(mode="json"), fmt)
+            raise SystemExit(1)
+
         errors, warnings = parse_build_output(stderr_combined, build_dir=build_dir)
 
         if result.returncode == 0:
@@ -806,7 +824,7 @@ class AgentCommand(WestCommand):
 
         result = backend.run(bd, timeout=timeout or None, extra_args=extra_args)
         self._emit(result.model_dump(mode="json"), fmt)
-        if result.status not in (EmulateStatus.SUCCESS, EmulateStatus.SESSION_CAPPED):
+        if result.status not in (EmulateStatus.SUCCESS, EmulateStatus.SESSION_CAPPED, EmulateStatus.TIMEOUT):
             raise SystemExit(1)
 
     # ------------------------------------------------------------------

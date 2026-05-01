@@ -60,3 +60,13 @@ class SkillSuggestResult(BaseModel):
     status: str
     query: str
     suggestions: list[SkillEntry] = []
+
+
+class SkillApplyResult(BaseModel):
+    """Result of the skills apply command."""
+    
+    status: str
+    name: str
+    target: str = ""
+    files_applied: list[str] = []
+    message: str = ""

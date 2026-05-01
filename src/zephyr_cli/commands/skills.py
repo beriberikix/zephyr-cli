@@ -198,3 +198,61 @@ def skills_suggest(
         SkillSuggestResult(status="ok", query=query, suggestions=suggestions),
         fmt=fmt,
     )
+
+# ---------------------------------------------------------------------------
+# apply
+# ---------------------------------------------------------------------------
+
+@app.command("apply")
+def skills_apply(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Skill name to apply templates from (e.g. 'connectivity-ble').")],
+    target: Annotated[str, typer.Option("--target", "-t", help="Target directory for templates (relative to workspace).")] = "src",
+    fmt: Annotated[str, typer.Option("--format", "-f")] = "json",
+) -> None:
+    """Inject templates and assets directly from a skill into your project."""
+    cfg = load_config()
+    ws_root = find_workspace_root()
+    if ws_root is None:
+        emit_error("Not inside a west workspace. Run 'west init' first.", fmt=fmt)
+        raise typer.Exit(1)
+
+    try:
+        index = reg.load_index(cfg)
+    except Exception as exc:
+        emit_error(f"Could not fetch skills registry: {exc}", fmt=fmt)
+        raise typer.Exit(1) from exc
+
+    skill = next((s for s in index.skills if s.name == name), None)
+    if skill is None:
+        emit_error(f"Skill '{name}' not found in registry.", fmt=fmt)
+        raise typer.Exit(1)
+
+    target_path = ws_root / target
+    try:
+        from zephyr_cli.schemas.skills import SkillApplyResult
+        _, applied = reg.apply_skill(skill, ws_root, target_path)
+        if not applied:
+            emit(
+                SkillApplyResult(
+                    status="no_templates_found",
+                    name=name,
+                    target=str(target_path),
+                    message=f"Skill '{name}' contains no code templates or assets to apply.",
+                ),
+                fmt=fmt,
+            )
+        else:
+            emit(
+                SkillApplyResult(
+                    status="applied",
+                    name=name,
+                    target=str(target_path),
+                    files_applied=applied,
+                    message=f"Successfully injected {len(applied)} template(s) into {target}",
+                ),
+                fmt=fmt,
+            )
+    except Exception as exc:
+        emit_error(f"Failed to apply templates from '{name}': {exc}", fmt=fmt)
+        raise typer.Exit(1) from exc
