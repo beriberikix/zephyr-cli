@@ -72,6 +72,15 @@ class TestEmulateResultSchema:
         assert r.status == "timeout"
         assert r.error is not None
 
+    def test_session_capped_status(self):
+        r = EmulateResult(
+            status=EmulateStatus.SESSION_CAPPED,
+            backend=EmulateBackendName.NATIVE_SIM,
+            output="west agent native_sim smoke\n",
+        )
+        assert r.status == "session_capped"
+        assert r.error is None
+
     def test_error_status(self):
         r = EmulateResult(status=EmulateStatus.ERROR, error="west not found")
         assert r.status == "error"
@@ -264,6 +273,21 @@ class TestNativeSimBackend:
 
         assert result.status == EmulateStatus.TIMEOUT
         assert "30.0s" in (result.error or "")
+
+    def test_run_timeout_with_output_is_session_capped(self, tmp_path):
+        from zephyr_cli.west_agent.backends.native_sim import NativeSimBackend
+
+        bd = _make_build_dir(tmp_path, with_exe=True)
+        exc = subprocess.TimeoutExpired(cmd=["zephyr.exe"], timeout=3.0)
+        exc.stdout = "*** Booting Zephyr OS ***\nwest agent native_sim smoke\n"
+        exc.stderr = None
+
+        with patch("zephyr_cli.west_agent.backends.native_sim.subprocess.run", side_effect=exc):
+            result = NativeSimBackend().run(bd, timeout=3.0, extra_args=[])
+
+        assert result.status == EmulateStatus.SESSION_CAPPED
+        assert result.error is None
+        assert "west agent native_sim smoke" in (result.output or "")
 
     def test_run_permission_error(self, tmp_path):
         from zephyr_cli.west_agent.backends.native_sim import NativeSimBackend

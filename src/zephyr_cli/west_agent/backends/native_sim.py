@@ -60,6 +60,14 @@ class NativeSimBackend(EmulationBackend):
                 captured += exc.stdout if isinstance(exc.stdout, str) else exc.stdout.decode(errors="replace")
             if exc.stderr:
                 captured += exc.stderr if isinstance(exc.stderr, str) else exc.stderr.decode(errors="replace")
+            if captured.strip() and not exc.stderr:
+                return EmulateResult(
+                    status=EmulateStatus.SESSION_CAPPED,
+                    backend=EmulateBackendName.NATIVE_SIM,
+                    build_dir=str(build_dir),
+                    duration_seconds=round(duration, 2),
+                    output=captured,
+                )
             return EmulateResult(
                 status=EmulateStatus.TIMEOUT,
                 backend=EmulateBackendName.NATIVE_SIM,

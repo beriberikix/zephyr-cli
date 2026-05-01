@@ -662,6 +662,7 @@ class AgentCommand(WestCommand):
 
     def _run_emulate(self, args: argparse.Namespace, fmt: str) -> None:
         from zephyr_cli.west_agent.backends.detect import detect_backend
+        from zephyr_cli.schemas.emulate import EmulateStatus
 
         bd = self._require_build_dir(args, fmt)
         assert bd is not None
@@ -694,7 +695,7 @@ class AgentCommand(WestCommand):
 
         result = backend.run(bd, timeout=timeout or None, extra_args=extra_args)
         self._emit(result.model_dump(mode="json"), fmt)
-        if result.status != "success":
+        if result.status not in (EmulateStatus.SUCCESS, EmulateStatus.SESSION_CAPPED):
             raise SystemExit(1)
 
     # ------------------------------------------------------------------

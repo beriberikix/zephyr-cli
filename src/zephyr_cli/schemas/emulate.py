@@ -10,6 +10,7 @@ from pydantic import BaseModel, field_validator
 
 class EmulateStatus(StrEnum):
     SUCCESS = "success"
+    SESSION_CAPPED = "session_capped"
     TIMEOUT = "timeout"
     ERROR = "error"
 
