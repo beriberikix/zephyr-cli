@@ -52,6 +52,8 @@ _RUNNER_FIELD_PATTERNS: dict[str, re.Pattern[str]] = {
     "debug": re.compile(r"^debug-runner:\s*(\S+)", re.IGNORECASE),
 }
 
+_CONFIG_BOARD_RE = re.compile(r'^CONFIG_BOARD="([^"]+)"$')
+
 
 def _filter_runner_output(stderr: str) -> tuple[str, list[str]]:
     """Separate actionable output from noisy runner warnings.
@@ -199,7 +201,24 @@ def _default_runner(build_dir: Path, operation: str) -> str | None:
     return None
 
 
-def _native_runner_error(build_dir: Path, operation: str, runner: str | None = None) -> dict[str, str] | None:
+def _configured_board(build_dir: Path) -> str | None:
+    """Return the configured board for a built artifact."""
+    dot_config = build_dir / "zephyr" / ".config"
+    if not dot_config.is_file():
+        return None
+
+    try:
+        for raw_line in dot_config.read_text().splitlines():
+            match = _CONFIG_BOARD_RE.match(raw_line.strip())
+            if match:
+                return match.group(1)
+    except OSError:
+        return None
+
+    return None
+
+
+def _native_runner_error(build_dir: Path, operation: str, runner: str | None = None) -> dict[str, str | None] | None:
     """Return a structured error when a native runner would block interactively."""
     resolved_runner = runner or _default_runner(build_dir, operation)
     if resolved_runner != "native":
@@ -219,6 +238,7 @@ def _native_runner_error(build_dir: Path, operation: str, runner: str | None = N
     return {
         "status": "error",
         "reason": "native_runner_not_supported",
+        "board": _configured_board(build_dir),
         "build_dir": str(build_dir),
         "runner": resolved_runner,
         "hint": hint,
@@ -1140,10 +1160,12 @@ class AgentCommand(WestCommand):
         bd = self._require_build_dir(args, fmt)
         assert bd is not None
 
+        board = _configured_board(bd)
         runner: str | None = getattr(args, "runner", None)
+        resolved_runner = runner or _default_runner(bd, "flash")
         extra_args: list[str] = [a for a in (getattr(args, "extra_args", None) or []) if a != "--"]
 
-        native_runner_error = _native_runner_error(bd, "flash", runner)
+        native_runner_error = _native_runner_error(bd, "flash", resolved_runner)
         if native_runner_error is not None:
             self._emit(native_runner_error, fmt)
             raise SystemExit(1)
@@ -1173,8 +1195,9 @@ class AgentCommand(WestCommand):
 
         result = FlashResult(
             status=status,
+            board=board,
             build_dir=str(bd),
-            runner=runner,
+            runner=resolved_runner,
             duration_seconds=round(duration, 2),
             output=filtered or None,
             error=proc.stderr.strip() or None if proc.returncode != 0 else None,

@@ -50,6 +50,18 @@ class TestUpdateCheckFailures:
         data = json.loads(result.output)
         assert "503" in data["reason"]
 
+    def test_http_404_package_not_published(self):
+        mock_resp = httpx.Response(404, request=httpx.Request("GET", "https://pypi.org"))
+        with patch(
+            "zephyr_cli.commands.update.httpx.get",
+            side_effect=httpx.HTTPStatusError("err", request=mock_resp.request, response=mock_resp),
+        ):
+            result = runner.invoke(app, ["update", "--check"])
+        assert result.exit_code != 0
+        data = json.loads(result.output)
+        assert data["reason"] == "package_not_published"
+        assert "install from source" in data["next_action"].lower()
+
     def test_malformed_response(self):
         mock_resp = httpx.Response(200, json={"unexpected": "data"}, request=httpx.Request("GET", "https://pypi.org"))
         with patch("zephyr_cli.commands.update.httpx.get", return_value=mock_resp):

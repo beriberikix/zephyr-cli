@@ -54,6 +54,7 @@ class TestWestAgentNativeSimFlashDebug:
         assert rc == 1
         assert data["status"] == "error"
         assert data["reason"] == "native_runner_not_supported"
+        assert data["board"] == "native_sim"
         assert data["build_dir"] == str(native_sim_build["build_dir"])
         assert data["runner"] == "native"
         assert "west agent emulate" in data["hint"]

@@ -28,6 +28,12 @@ def _latest_pypi_version() -> tuple[str | None, str | None, str | None]:
     except httpx.TimeoutException:
         return None, "timeout", "PyPI did not respond in time. Try again later."
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return (
+                None,
+                "package_not_published",
+                "zephyr-cli is not published on PyPI yet. Use the local checkout or install from source.",
+            )
         return (
             None,
             f"pypi_http_{exc.response.status_code}",

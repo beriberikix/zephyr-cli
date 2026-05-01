@@ -65,6 +65,10 @@ def _write_runners_yaml(build_dir: Path, *, flash_runner: str | None = None, deb
     (build_dir / "zephyr" / "runners.yaml").write_text("\n".join(lines) + "\n")
 
 
+def _write_board_config(build_dir: Path, board: str) -> None:
+    (build_dir / "zephyr" / ".config").write_text(f'CONFIG_BOARD="{board}"\n')
+
+
 # ---------------------------------------------------------------------------
 # parse_twister_json
 # ---------------------------------------------------------------------------
@@ -353,6 +357,7 @@ class TestRunFlashHandler:
 
     def test_flash_with_runner(self, tmp_path):
         bd = _make_build_dir(tmp_path)
+        _write_board_config(bd, "nrf52840dk/nrf52840")
         from zephyr_cli.west_agent import AgentCommand
 
         cmd = AgentCommand()
@@ -375,8 +380,30 @@ class TestRunFlashHandler:
         assert "--runner" in captured_cmd
         assert "jlink" in captured_cmd
 
+    def test_flash_populates_board_and_default_runner(self, tmp_path):
+        bd = _make_build_dir(tmp_path)
+        _write_board_config(bd, "esp32s3_devkitc/esp32s3/procpu")
+        _write_runners_yaml(bd, flash_runner="esp32")
+        from zephyr_cli.west_agent import AgentCommand
+
+        cmd = AgentCommand()
+        captured: list[dict] = []
+        cmd._emit = lambda d, _fmt: captured.append(d)  # type: ignore[method-assign]
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "Flashing...\n"
+        mock_proc.stderr = ""
+
+        with patch("zephyr_cli.west_agent.subprocess.run", return_value=mock_proc):
+            cmd._run_flash(self._make_args(str(bd)), "json")
+
+        assert captured[0]["board"] == "esp32s3_devkitc/esp32s3/procpu"
+        assert captured[0]["runner"] == "esp32"
+
     def test_flash_native_runner_fails_fast_without_spawning_west(self, tmp_path):
         bd = _make_build_dir(tmp_path)
+        _write_board_config(bd, "native_sim")
         _write_runners_yaml(bd, flash_runner="native")
         from zephyr_cli.west_agent import AgentCommand
 
@@ -389,6 +416,7 @@ class TestRunFlashHandler:
 
         run_mock.assert_not_called()
         assert captured[0]["reason"] == "native_runner_not_supported"
+        assert captured[0]["board"] == "native_sim"
         assert captured[0]["runner"] == "native"
 
 
