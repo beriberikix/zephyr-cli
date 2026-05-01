@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pickle
+import sys
 from types import SimpleNamespace
 
 # ---------------------------------------------------------------------------
@@ -211,3 +213,33 @@ class TestGetChosen:
         edt = SimpleNamespace()
         result = get_chosen(edt)
         assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# load_edt
+# ---------------------------------------------------------------------------
+
+
+class TestLoadEdt:
+    def test_adds_zephyr_dts_scripts_before_unpickling(self, tmp_path, monkeypatch):
+        from zephyr_cli.west_agent.inspect.dts import load_edt
+
+        zephyr_base = tmp_path / "zephyr"
+        dts_scripts = zephyr_base / "scripts" / "dts"
+        dts_scripts.mkdir(parents=True)
+
+        build_dir = tmp_path / "build"
+        edt_pickle = build_dir / "zephyr" / "edt.pickle"
+        edt_pickle.parent.mkdir(parents=True)
+        edt_pickle.write_bytes(b"pickle")
+
+        sentinel = object()
+
+        def fake_load(_fh):
+            assert str(dts_scripts) in sys.path
+            return sentinel
+
+        monkeypatch.setattr(pickle, "load", fake_load)
+
+        assert load_edt(build_dir, str(zephyr_base)) is sentinel
+

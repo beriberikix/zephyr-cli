@@ -144,6 +144,10 @@ def load_edt(build_dir: Path, zephyr_base: str):
     """
     import pickle
 
+    dts_scripts = Path(zephyr_base) / "scripts" / "dts"
+    if dts_scripts.exists() and str(dts_scripts) not in sys.path:
+        sys.path.insert(0, str(dts_scripts))
+
     edt_pickle = build_dir / "zephyr" / "edt.pickle"
     zephyr_dts = build_dir / "zephyr" / "zephyr.dts"
 
@@ -155,11 +159,6 @@ def load_edt(build_dir: Path, zephyr_base: str):
         raise FileNotFoundError(
             f"Neither edt.pickle nor zephyr.dts found in {build_dir / 'zephyr'}"
         )
-
-    # Try edtlib from Zephyr tree
-    dts_scripts = Path(zephyr_base) / "scripts" / "dts"
-    if dts_scripts.exists() and str(dts_scripts) not in sys.path:
-        sys.path.insert(0, str(dts_scripts))
 
     try:
         import edtlib  # type: ignore[import-untyped]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -286,4 +288,60 @@ class TestSearchSymbols:
         assert "CONFIG_BT" in names
         assert "CONFIG_WIFI" not in names
         assert "CONFIG_BOARD" not in names
+
+
+# ---------------------------------------------------------------------------
+# load_kconfig
+# ---------------------------------------------------------------------------
+
+
+class TestLoadKconfig:
+    def test_uses_zephyr_tree_root_and_build_env(self, tmp_path, monkeypatch):
+        from zephyr_cli.west_agent.inspect.kconfig import load_kconfig
+
+        zephyr_base = tmp_path / "zephyr"
+        (zephyr_base / "scripts" / "kconfig").mkdir(parents=True)
+        (zephyr_base / "Kconfig").write_text("mainmenu \"Zephyr\"\n")
+
+        build_dir = tmp_path / "build"
+        (build_dir / "Kconfig").mkdir(parents=True)
+        dot_config = build_dir / "zephyr" / ".config"
+        dot_config.parent.mkdir(parents=True)
+        dot_config.write_text("CONFIG_LOG=y\n")
+
+        calls: dict = {}
+
+        class FakeKconfig:
+            def __init__(self, filename, warn=False, warn_to_stderr=False):
+                calls["filename"] = filename
+                calls["env"] = {
+                    "ZEPHYR_BASE": os.environ.get("ZEPHYR_BASE"),
+                    "srctree": os.environ.get("srctree"),
+                    "KCONFIG_BINARY_DIR": os.environ.get("KCONFIG_BINARY_DIR"),
+                    "KCONFIG_DOC_MODE": os.environ.get("KCONFIG_DOC_MODE"),
+                }
+
+            def load_config(self, path):
+                calls["config"] = path
+
+        monkeypatch.setitem(sys.modules, "kconfiglib", SimpleNamespace(Kconfig=FakeKconfig))
+        monkeypatch.delenv("ZEPHYR_BASE", raising=False)
+        monkeypatch.delenv("srctree", raising=False)
+        monkeypatch.delenv("KCONFIG_BINARY_DIR", raising=False)
+        monkeypatch.delenv("KCONFIG_DOC_MODE", raising=False)
+
+        load_kconfig(str(zephyr_base), build_dir, dot_config)
+
+        assert calls["filename"] == str(zephyr_base / "Kconfig")
+        assert calls["config"] == str(dot_config)
+        assert calls["env"] == {
+            "ZEPHYR_BASE": str(zephyr_base),
+            "srctree": str(zephyr_base),
+            "KCONFIG_BINARY_DIR": str(build_dir / "Kconfig"),
+            "KCONFIG_DOC_MODE": "1",
+        }
+        assert os.environ.get("ZEPHYR_BASE") is None
+        assert os.environ.get("srctree") is None
+        assert os.environ.get("KCONFIG_BINARY_DIR") is None
+        assert os.environ.get("KCONFIG_DOC_MODE") is None
 

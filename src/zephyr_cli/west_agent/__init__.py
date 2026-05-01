@@ -582,7 +582,13 @@ class AgentCommand(WestCommand):
         """Resolve the build directory from args, falling back to common locations."""
         bd = getattr(args, "build_dir", None)
         if bd:
-            return Path(bd).resolve()
+            resolved = Path(bd).resolve()
+            if resolved.name == "zephyr" and any(
+                (resolved / name).exists()
+                for name in (".config", "zephyr.elf", "edt.pickle", "zephyr.dts")
+            ):
+                return resolved.parent
+            return resolved
 
         # Try common default locations
         cwd = Path.cwd()

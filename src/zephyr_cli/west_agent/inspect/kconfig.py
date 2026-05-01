@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import os
 import re
+import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -23,22 +24,42 @@ def load_kconfig(zephyr_base: str, build_dir: Path, dot_config: Path):  # type: 
     Raises ``ImportError`` if kconfiglib is not installed.
     Raises ``FileNotFoundError`` if the Kconfig root cannot be located.
     """
+    kconfig_scripts = Path(zephyr_base) / "scripts" / "kconfig"
+    if kconfig_scripts.exists() and str(kconfig_scripts) not in sys.path:
+        sys.path.insert(0, str(kconfig_scripts))
+
     import kconfiglib  # type: ignore[import-untyped]
 
-    # Prefer the build-generated merged Kconfig root
+    # Some builds emit a Kconfig directory under the build root rather than a
+    # file kconfiglib can consume directly. Fall back to the Zephyr tree root
+    # in that case.
     kconfig_root = build_dir / "Kconfig"
-    if not kconfig_root.exists():
+    if not kconfig_root.is_file():
         kconfig_root = Path(zephyr_base) / "Kconfig"
-    if not kconfig_root.exists():
+    if not kconfig_root.is_file():
         raise FileNotFoundError(f"Cannot find Kconfig root at {kconfig_root}")
 
-    env = os.environ.copy()
-    env.setdefault("ZEPHYR_BASE", zephyr_base)
-    env.setdefault("KCONFIG_DOC_MODE", "1")  # suppress missing-source warnings
+    saved_env = {
+        "ZEPHYR_BASE": os.environ.get("ZEPHYR_BASE"),
+        "srctree": os.environ.get("srctree"),
+        "KCONFIG_BINARY_DIR": os.environ.get("KCONFIG_BINARY_DIR"),
+        "KCONFIG_DOC_MODE": os.environ.get("KCONFIG_DOC_MODE"),
+    }
+    os.environ["ZEPHYR_BASE"] = zephyr_base
+    os.environ["srctree"] = zephyr_base
+    os.environ["KCONFIG_BINARY_DIR"] = str(build_dir / "Kconfig")
+    os.environ["KCONFIG_DOC_MODE"] = "1"  # suppress missing-source warnings
 
-    kconf = kconfiglib.Kconfig(str(kconfig_root), warn=False, warn_to_stderr=False)
-    kconf.load_config(str(dot_config))
-    return kconf
+    try:
+        kconf = kconfiglib.Kconfig(str(kconfig_root), warn=False, warn_to_stderr=False)
+        kconf.load_config(str(dot_config))
+        return kconf
+    finally:
+        for key, value in saved_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 # ---------------------------------------------------------------------------
