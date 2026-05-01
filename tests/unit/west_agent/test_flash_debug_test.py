@@ -65,6 +65,18 @@ def _write_runners_yaml(build_dir: Path, *, flash_runner: str | None = None, deb
     (build_dir / "zephyr" / "runners.yaml").write_text("\n".join(lines) + "\n")
 
 
+def _write_openocd_runner_config(build_dir: Path, *, board_dir: Path, search_paths: list[Path]) -> None:
+    runners_yaml = build_dir / "zephyr" / "runners.yaml"
+    lines = runners_yaml.read_text().splitlines()
+    lines.extend([
+        "config:",
+        f"  board_dir: {board_dir}",
+        "  openocd_search:",
+        *[f"    - {path}" for path in search_paths],
+    ])
+    runners_yaml.write_text("\n".join(lines) + "\n")
+
+
 def _write_board_config(build_dir: Path, board: str) -> None:
     (build_dir / "zephyr" / ".config").write_text(f'CONFIG_BOARD="{board}"\n')
 
@@ -523,6 +535,39 @@ class TestRunDebugHandler:
         run_mock.assert_not_called()
         assert captured[0]["reason"] == "native_runner_not_supported"
         assert captured[0]["runner"] == "native"
+
+    def test_missing_openocd_script_fails_fast_without_spawning_west(self, tmp_path):
+        bd = _make_build_dir(tmp_path)
+        _write_board_config(bd, "esp32s3_devkitc/esp32s3/procpu")
+        _write_runners_yaml(bd, debug_runner="openocd")
+
+        board_dir = tmp_path / "boards" / "espressif" / "esp32s3_devkitc"
+        support_dir = board_dir / "support"
+        support_dir.mkdir(parents=True)
+        (support_dir / "openocd.cfg").write_text(
+            "source [find interface/esp_usb_jtag.cfg]\n"
+            "source [find target/esp32s3.cfg]\n"
+        )
+
+        scripts_dir = tmp_path / "openocd-scripts"
+        (scripts_dir / "target").mkdir(parents=True)
+        (scripts_dir / "target" / "esp32s3.cfg").write_text("# target config\n")
+        _write_openocd_runner_config(bd, board_dir=board_dir, search_paths=[scripts_dir])
+
+        from zephyr_cli.west_agent import AgentCommand
+
+        cmd = AgentCommand()
+        captured: list[dict] = []
+        cmd._emit = lambda d, _fmt: captured.append(d)  # type: ignore[method-assign]
+
+        with patch("zephyr_cli.west_agent.subprocess.run") as run_mock, pytest.raises(SystemExit):
+            cmd._run_debug(self._make_args(str(bd)), "json")
+
+        run_mock.assert_not_called()
+        assert captured[0]["reason"] == "openocd_script_not_found"
+        assert captured[0]["runner"] == "openocd"
+        assert captured[0]["board"] == "esp32s3_devkitc/esp32s3/procpu"
+        assert captured[0]["missing_scripts"] == ["interface/esp_usb_jtag.cfg"]
 
 
 # ---------------------------------------------------------------------------

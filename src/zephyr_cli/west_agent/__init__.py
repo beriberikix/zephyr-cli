@@ -53,6 +53,7 @@ _RUNNER_FIELD_PATTERNS: dict[str, re.Pattern[str]] = {
 }
 
 _CONFIG_BOARD_RE = re.compile(r'^CONFIG_BOARD="([^"]+)"$')
+_OPENOCD_FIND_RE = re.compile(r"source\s+\[find\s+([^\]]+)\]", re.IGNORECASE)
 
 
 def _filter_runner_output(stderr: str) -> tuple[str, list[str]]:
@@ -201,6 +202,53 @@ def _default_runner(build_dir: Path, operation: str) -> str | None:
     return None
 
 
+def _runner_config_value(build_dir: Path, key: str) -> str | None:
+    """Return a simple scalar value from zephyr/runners.yaml's config block."""
+    runners_yaml = build_dir / "zephyr" / "runners.yaml"
+    if not runners_yaml.is_file():
+        return None
+
+    target = f"{key}:"
+    try:
+        for raw_line in runners_yaml.read_text().splitlines():
+            stripped = raw_line.strip()
+            if stripped.startswith(target):
+                return stripped.split(":", 1)[1].strip() or None
+    except OSError:
+        return None
+
+    return None
+
+
+def _runner_config_list(build_dir: Path, key: str) -> list[str]:
+    """Return a simple list value from zephyr/runners.yaml's config block."""
+    runners_yaml = build_dir / "zephyr" / "runners.yaml"
+    if not runners_yaml.is_file():
+        return []
+
+    items: list[str] = []
+    in_list = False
+    list_key = f"{key}:"
+    try:
+        for raw_line in runners_yaml.read_text().splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if in_list:
+                if stripped.startswith("-"):
+                    item = stripped[1:].strip()
+                    if item:
+                        items.append(item)
+                    continue
+                break
+            if stripped == list_key:
+                in_list = True
+    except OSError:
+        return []
+
+    return items
+
+
 def _configured_board(build_dir: Path) -> str | None:
     """Return the configured board for a built artifact."""
     dot_config = build_dir / "zephyr" / ".config"
@@ -216,6 +264,59 @@ def _configured_board(build_dir: Path) -> str | None:
         return None
 
     return None
+
+
+def _missing_openocd_script_error(build_dir: Path) -> dict[str, object] | None:
+    """Return a structured error when the configured OpenOCD scripts are incomplete."""
+    if _default_runner(build_dir, "debug") != "openocd":
+        return None
+
+    board_dir_value = _runner_config_value(build_dir, "board_dir")
+    if board_dir_value is None:
+        return None
+
+    board_dir = Path(board_dir_value)
+    openocd_cfg = board_dir / "support" / "openocd.cfg"
+    if not openocd_cfg.is_file():
+        return None
+
+    search_paths = [Path(path) for path in _runner_config_list(build_dir, "openocd_search")]
+    env_search = os.environ.get("OPENOCD_SCRIPTS")
+    if env_search:
+        search_paths.insert(0, Path(env_search))
+    if not search_paths:
+        return None
+
+    try:
+        required_scripts = [
+            match.group(1).strip()
+            for raw_line in openocd_cfg.read_text().splitlines()
+            if (match := _OPENOCD_FIND_RE.search(raw_line.strip())) is not None
+        ]
+    except OSError:
+        return None
+
+    missing_scripts = [
+        script
+        for script in required_scripts
+        if not any((search_path / script).is_file() for search_path in search_paths)
+    ]
+    if not missing_scripts:
+        return None
+
+    return {
+        "status": "error",
+        "reason": "openocd_script_not_found",
+        "board": _configured_board(build_dir),
+        "build_dir": str(build_dir),
+        "runner": "openocd",
+        "missing_scripts": missing_scripts,
+        "searched_paths": [str(path) for path in search_paths],
+        "hint": (
+            "Install an OpenOCD scripts package that provides the missing files, "
+            "or set OPENOCD_SCRIPTS to a scripts directory containing them."
+        ),
+    }
 
 
 def _native_runner_error(build_dir: Path, operation: str, runner: str | None = None) -> dict[str, str | None] | None:
@@ -1227,6 +1328,11 @@ class AgentCommand(WestCommand):
         native_runner_error = _native_runner_error(bd, "debug")
         if native_runner_error is not None:
             self._emit(native_runner_error, fmt)
+            raise SystemExit(1)
+
+        openocd_script_error = _missing_openocd_script_error(bd)
+        if openocd_script_error is not None:
+            self._emit(openocd_script_error, fmt)
             raise SystemExit(1)
 
         west_cmd = _west_command()
