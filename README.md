@@ -33,6 +33,11 @@ west update
 west help agent
 ```
 
+For end-to-end `west agent build`, `flash`, and `debug` flows, use a combined
+Zephyr workspace that includes both Zephyr and `zephyr-cli` in the manifest.
+A repo-only checkout can expose `west agent` while still missing Zephyr's own
+`west build`, `west flash`, and `west debug` extension commands.
+
 ## Global commands (`zephyr-cli`)
 
 These commands work anywhere — no west workspace required.
@@ -111,6 +116,7 @@ west agent inspect env                               # Dump effective build envi
 west agent emulate                                   # Auto-detect backend (QEMU or native_sim)
 west agent emulate --backend qemu --timeout 60
 west agent emulate --backend native_sim
+west agent emulate --backend native_sim --timeout 3  # May return status=session_capped
 
 # --- Test ---
 west agent test --platform qemu_cortex_m3
@@ -134,6 +140,20 @@ west agent debug --rtt-port 19021 --rtt-timeout 60
 # Override output format for any command
 west agent build --board nrf52840dk/nrf52840 --format human
 ```
+
+### Workspace notes
+
+- `west agent flash` and `west agent debug` return `native_runner_not_supported`
+  for `native` runners. Use `west agent emulate` for `native_sim` builds.
+- Structured flash and debug results include `build_dir`, `board`, and `runner`
+  metadata so agents can key off the active build target without reparsing the
+  build directory.
+- `west agent emulate --timeout ...` can return `session_capped` when the app
+  produced useful output before the requested time cap elapsed.
+- For ESP32 debug, if the board support config references a missing OpenOCD
+  script such as `interface/esp_usb_jtag.cfg`, `west agent debug` returns
+  `openocd_script_not_found` before launch. Set `OPENOCD_SCRIPTS` to a scripts
+  directory that contains the required interface files.
 
 ## GitHub Actions reusable workflow
 
