@@ -47,6 +47,11 @@ _TWISTER_PYTHON_MODULES: list[tuple[str, str]] = [
     ("psutil", "psutil"),
 ]
 
+_RUNNER_FIELD_PATTERNS: dict[str, re.Pattern[str]] = {
+    "flash": re.compile(r"^flash-runner:\s*(\S+)", re.IGNORECASE),
+    "debug": re.compile(r"^debug-runner:\s*(\S+)", re.IGNORECASE),
+}
+
 
 def _filter_runner_output(stderr: str) -> tuple[str, list[str]]:
     """Separate actionable output from noisy runner warnings.
@@ -174,6 +179,50 @@ def _preflight_board_deps(board: str | None) -> list[dict[str, str]]:
             })
 
     return warnings
+
+
+def _default_runner(build_dir: Path, operation: str) -> str | None:
+    """Return the configured default runner for a built artifact."""
+    runners_yaml = build_dir / "zephyr" / "runners.yaml"
+    pattern = _RUNNER_FIELD_PATTERNS.get(operation)
+    if pattern is None or not runners_yaml.is_file():
+        return None
+
+    try:
+        for raw_line in runners_yaml.read_text().splitlines():
+            match = pattern.match(raw_line.strip())
+            if match:
+                return match.group(1)
+    except OSError:
+        return None
+
+    return None
+
+
+def _native_runner_error(build_dir: Path, operation: str, runner: str | None = None) -> dict[str, str] | None:
+    """Return a structured error when a native runner would block interactively."""
+    resolved_runner = runner or _default_runner(build_dir, operation)
+    if resolved_runner != "native":
+        return None
+
+    if operation == "flash":
+        hint = (
+            "This build uses the native emulation runner. Use 'west agent emulate' "
+            "instead of 'west agent flash'."
+        )
+    else:
+        hint = (
+            "This build uses the native emulation runner. Use 'west agent emulate' "
+            "to run it, or invoke gdb directly on zephyr/zephyr.exe for manual debugging."
+        )
+
+    return {
+        "status": "error",
+        "reason": "native_runner_not_supported",
+        "build_dir": str(build_dir),
+        "runner": resolved_runner,
+        "hint": hint,
+    }
 # Entry point: single 'west agent' command with subcommands
 # ---------------------------------------------------------------------------
 
@@ -1093,6 +1142,11 @@ class AgentCommand(WestCommand):
         runner: str | None = getattr(args, "runner", None)
         extra_args: list[str] = [a for a in (getattr(args, "extra_args", None) or []) if a != "--"]
 
+        native_runner_error = _native_runner_error(bd, "flash", runner)
+        if native_runner_error is not None:
+            self._emit(native_runner_error, fmt)
+            raise SystemExit(1)
+
         west_cmd = _west_command()
         if west_cmd is None:
             self._emit({"status": "error", "reason": "west_not_found"}, fmt)
@@ -1145,6 +1199,11 @@ class AgentCommand(WestCommand):
         rtt_port: int | None = getattr(args, "rtt_port", None)
         gdb_port: int | None = getattr(args, "gdb_port", None)
         rtt_timeout: float = getattr(args, "rtt_timeout", 30.0)
+
+        native_runner_error = _native_runner_error(bd, "debug")
+        if native_runner_error is not None:
+            self._emit(native_runner_error, fmt)
+            raise SystemExit(1)
 
         west_cmd = _west_command()
         if west_cmd is None:

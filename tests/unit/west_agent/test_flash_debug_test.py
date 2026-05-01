@@ -56,6 +56,15 @@ def _make_build_dir(base: Path, *, with_elf: bool = True) -> Path:
     return base
 
 
+def _write_runners_yaml(build_dir: Path, *, flash_runner: str | None = None, debug_runner: str | None = None) -> None:
+    lines = ["# Available runners configured by board.cmake.", "runners:", "- native", ""]
+    if flash_runner is not None:
+        lines.extend(["# Default flash runner if --runner is not given.", f"flash-runner: {flash_runner}", ""])
+    if debug_runner is not None:
+        lines.extend(["# Default debug runner if --runner is not given.", f"debug-runner: {debug_runner}", ""])
+    (build_dir / "zephyr" / "runners.yaml").write_text("\n".join(lines) + "\n")
+
+
 # ---------------------------------------------------------------------------
 # parse_twister_json
 # ---------------------------------------------------------------------------
@@ -366,6 +375,22 @@ class TestRunFlashHandler:
         assert "--runner" in captured_cmd
         assert "jlink" in captured_cmd
 
+    def test_flash_native_runner_fails_fast_without_spawning_west(self, tmp_path):
+        bd = _make_build_dir(tmp_path)
+        _write_runners_yaml(bd, flash_runner="native")
+        from zephyr_cli.west_agent import AgentCommand
+
+        cmd = AgentCommand()
+        captured: list[dict] = []
+        cmd._emit = lambda d, _fmt: captured.append(d)  # type: ignore[method-assign]
+
+        with patch("zephyr_cli.west_agent.subprocess.run") as run_mock, pytest.raises(SystemExit):
+            cmd._run_flash(self._make_args(str(bd)), "json")
+
+        run_mock.assert_not_called()
+        assert captured[0]["reason"] == "native_runner_not_supported"
+        assert captured[0]["runner"] == "native"
+
 
 # ---------------------------------------------------------------------------
 # _run_debug dispatch
@@ -454,6 +479,22 @@ class TestRunDebugHandler:
             cmd._run_debug(self._make_args(str(bd), server=True), "json")
 
         assert captured[0]["status"] == "error"
+
+    def test_native_runner_fails_fast_without_spawning_west(self, tmp_path):
+        bd = _make_build_dir(tmp_path)
+        _write_runners_yaml(bd, debug_runner="native")
+        from zephyr_cli.west_agent import AgentCommand
+
+        cmd = AgentCommand()
+        captured: list[dict] = []
+        cmd._emit = lambda d, _fmt: captured.append(d)  # type: ignore[method-assign]
+
+        with patch("zephyr_cli.west_agent.subprocess.run") as run_mock, pytest.raises(SystemExit):
+            cmd._run_debug(self._make_args(str(bd)), "json")
+
+        run_mock.assert_not_called()
+        assert captured[0]["reason"] == "native_runner_not_supported"
+        assert captured[0]["runner"] == "native"
 
 
 # ---------------------------------------------------------------------------
