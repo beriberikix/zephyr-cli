@@ -45,39 +45,62 @@ def _tool_info(name: str, version_args: list[str] | None = None) -> ToolInfo:
 
 
 def _west_info() -> WestInfo:
-    path = shutil.which("west")
-    if path is None:
-        return WestInfo(available=False)
-
-    version = _run_version([path, "--version"])
-
-    # Try to discover workspace via west topdir
+    # Strategy: try in-process import first (avoids PATH issues when
+    # zephyr-cli and west are co-installed), then fall back to subprocess.
     workspace_root = None
     manifest_path = None
+    version = None
+    path = shutil.which("west")
+
+    # 1. Try in-process detection via west library
     try:
-        result = subprocess.run(
-            [path, "topdir"], capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            workspace_root = result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        from west.util import west_topdir  # type: ignore[import-untyped]
+        workspace_root = str(west_topdir())
+    except Exception:
         pass
 
-    # Try manifest path
+    # 2. Try in-process manifest path
     try:
-        result = subprocess.run(
-            [path, "manifest", "--path"], capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            manifest_path = result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        from west.manifest import Manifest  # type: ignore[import-untyped]
+        m = Manifest.from_topdir(topdir=workspace_root)
+        if m.abspath:
+            manifest_path = str(m.abspath)
+    except Exception:
         pass
+
+    # 3. Try subprocess as fallback for workspace discovery
+    if workspace_root is None and path is not None:
+        try:
+            result = subprocess.run(
+                [path, "topdir"], capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                workspace_root = result.stdout.strip()
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+
+    if manifest_path is None and path is not None:
+        try:
+            result = subprocess.run(
+                [path, "manifest", "--path"], capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                manifest_path = result.stdout.strip()
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+
+    # Determine version
+    if path is not None:
+        version = _run_version([path, "--version"])
+
+    # Available if we found west on PATH or resolved a workspace in-process
+    available = path is not None or workspace_root is not None
 
     return WestInfo(
         version=version,
         workspace_root=workspace_root,
         manifest_path=manifest_path,
-        available=True,
+        available=available,
     )
 
 
@@ -118,18 +141,36 @@ def _sdk_info() -> SDKInfo:
     return SDKInfo(available=False)
 
 
-def _west_agent_available() -> bool:
-    """Check whether the west agent extension is registered."""
+def _west_agent_available() -> tuple[bool, str | None]:
+    """Check whether the west agent extension is registered.
+
+    Returns (available, reason) where reason explains why the extension
+    is not available when available is False.
+    """
+    west_path = shutil.which("west")
+    if west_path is None:
+        return False, "west is not installed or not on PATH"
     try:
         result = subprocess.run(
-            ["west", "help", "agent"],
+            [west_path, "help", "agent"],
             capture_output=True,
             text=True,
             timeout=5,
         )
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        return False
+        if result.returncode == 0:
+            return True, None
+        return (
+            False,
+            "west agent extension is not registered in the workspace manifest; "
+            "add west-commands.yml reference to your west.yml "
+            "(see zephyr-cli README for setup instructions)",
+        )
+    except FileNotFoundError:
+        return False, "west is not installed or not on PATH"
+    except subprocess.TimeoutExpired:
+        return False, "west help agent timed out"
+    except OSError as exc:
+        return False, f"OS error checking west agent: {exc}"
 
 
 def _installed_skills(skills_dir: Path | None) -> list[str]:
@@ -154,10 +195,21 @@ def collect_env(skills_dir: Path | None = None) -> EnvResult:
     # Prefer WEST_TOPDIR from env, then from west topdir discovery
     ws_root = os.environ.get("WEST_TOPDIR") or west.workspace_root
 
+    # If WEST_TOPDIR was set but west detection missed it, patch up
+    if ws_root and not west.available:
+        west = WestInfo(
+            version=west.version,
+            workspace_root=ws_root,
+            manifest_path=west.manifest_path,
+            available=True,
+        )
+
     # Resolve skills dir
     if skills_dir is None and ws_root:
         from zephyr_cli.core.config import SKILLS_DIR_RELPATH
         skills_dir = Path(ws_root) / SKILLS_DIR_RELPATH
+
+    agent_available, agent_reason = _west_agent_available()
 
     return EnvResult(
         zephyr_base=zephyr_base,
@@ -170,5 +222,6 @@ def collect_env(skills_dir: Path | None = None) -> EnvResult:
         zephyr_env_vars=zephyr_vars,
         skills_dir=str(skills_dir) if skills_dir else None,
         installed_skills=_installed_skills(skills_dir),
-        west_agent_available=_west_agent_available(),
+        west_agent_available=agent_available,
+        west_agent_reason=agent_reason,
     )

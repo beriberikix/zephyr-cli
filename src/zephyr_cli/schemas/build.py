@@ -28,6 +28,8 @@ class BuildError(BaseModel):
     message: str
     # Raw compiler error type if parseable (e.g. "error", "fatal error")
     error_type: str | None = None
+    # Actionable remediation hint for agents / users
+    remediation: str | None = None
 
 
 class BuildBinary(BaseModel):
@@ -67,6 +69,22 @@ _COMPILER_DIAG_RE = re.compile(
 
 # CMake error lines
 _CMAKE_ERROR_RE = re.compile(r"^CMake Error.*?:\s*(?P<msg>.+)$")
+
+# Python version too old (CMake find_package / Zephyr check)
+_PYTHON_VERSION_RE = re.compile(
+    r"(?:Could NOT find Python3.*Required is at least version "
+    r"|Found unsuitable version \".*\", minimum required is \""
+    r"|Python version .* is less than minimum required version )"
+    r"(?P<ver>[\d.]+)",
+    re.IGNORECASE,
+)
+
+# Missing Python package / west module dependency
+_MISSING_PKG_RE = re.compile(
+    r"(?:No module named '(?P<mod>[^']+)'"
+    r"|ModuleNotFoundError: No module named '(?P<mod2>[^']+)'"
+    r"|ImportError: (?P<imp>.+))",
+)
 
 
 def parse_build_output(
@@ -113,6 +131,30 @@ def parse_build_output(
         cm = _CMAKE_ERROR_RE.match(line)
         if cm:
             errors.append(BuildError(message=cm.group("msg"), error_type="cmake"))
+            continue
+
+        pm = _PYTHON_VERSION_RE.search(line)
+        if pm:
+            required = pm.group("ver")
+            errors.append(
+                BuildError(
+                    message=f"Python >= {required} is required by the build system.",
+                    error_type="python_version",
+                    remediation=f"Install Python >= {required} or activate a compatible virtualenv.",
+                )
+            )
+            continue
+
+        mm = _MISSING_PKG_RE.search(line)
+        if mm:
+            mod = mm.group("mod") or mm.group("mod2") or mm.group("imp")
+            errors.append(
+                BuildError(
+                    message=f"Missing Python package: {mod}",
+                    error_type="missing_package",
+                    remediation=f"pip install {mod}",
+                )
+            )
             continue
 
     return errors, warnings

@@ -40,3 +40,4 @@ class EnvResult(BaseModel):
     installed_skills: list[str] = Field(default_factory=list)
     # West agent extension availability
     west_agent_available: bool = False
+    west_agent_reason: str | None = None

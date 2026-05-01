@@ -14,13 +14,29 @@ from zephyr_cli.core.output import emit, emit_error
 PYPI_URL = "https://pypi.org/pypi/zephyr-cli/json"
 
 
-def _latest_pypi_version() -> str | None:
+def _latest_pypi_version() -> tuple[str | None, str | None, str | None]:
+    """Fetch latest version from PyPI.
+
+    Returns (version, error_reason, next_action).
+    """
     try:
         resp = httpx.get(PYPI_URL, timeout=10)
         resp.raise_for_status()
-        return resp.json()["info"]["version"]
+        return resp.json()["info"]["version"], None, None
+    except httpx.ConnectError:
+        return None, "network_unreachable", "Check your internet connection and try again."
+    except httpx.TimeoutException:
+        return None, "timeout", "PyPI did not respond in time. Try again later."
+    except httpx.HTTPStatusError as exc:
+        return (
+            None,
+            f"pypi_http_{exc.response.status_code}",
+            f"PyPI returned HTTP {exc.response.status_code}. Try again later.",
+        )
+    except (KeyError, ValueError):
+        return None, "malformed_response", "PyPI returned an unexpected payload."
     except Exception:
-        return None
+        return None, "unknown", "An unexpected error occurred querying PyPI."
 
 
 def update_cmd(
@@ -29,10 +45,18 @@ def update_cmd(
 ) -> None:
     """Self-update zephyr-cli to the latest PyPI release."""
     current = __version__
-    latest = _latest_pypi_version()
+    latest, error_reason, next_action = _latest_pypi_version()
 
     if latest is None:
-        emit_error("Could not determine latest version from PyPI.", fmt=fmt)
+        emit(
+            {
+                "status": "error",
+                "message": "Could not determine latest version from PyPI.",
+                "reason": error_reason,
+                "next_action": next_action,
+            },
+            fmt=fmt,
+        )
         raise typer.Exit(1)
 
     if current == latest:

@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 from zephyr_cli.core.create import (
     create_project,
     next_steps,
+    validate_board,
 )
 from zephyr_cli.main import app
 
@@ -97,6 +98,44 @@ class TestNextSteps:
     def test_t3_uses_sysbuild(self):
         steps = next_steps("T3", "myapp")
         assert any("--sysbuild" in s for s in steps)
+
+
+class TestValidateBoard:
+    def test_valid_simple_board(self):
+        warnings = validate_board("nrf52840dk")
+        assert isinstance(warnings, list)
+
+    def test_valid_two_part_board(self):
+        warnings = validate_board("nrf52840dk/nrf52840")
+        assert isinstance(warnings, list)
+
+    def test_valid_three_part_board(self):
+        warnings = validate_board("esp32s3_devkitc/esp32s3/procpu")
+        assert isinstance(warnings, list)
+
+    def test_rejects_four_part_board(self):
+        with pytest.raises(ValueError, match="Invalid board identifier"):
+            validate_board("a/b/c/d")
+
+    def test_rejects_special_characters(self):
+        with pytest.raises(ValueError, match="invalid characters"):
+            validate_board("board@name")
+
+    def test_rejects_spaces(self):
+        with pytest.raises(ValueError, match="invalid characters"):
+            validate_board("not a board")
+
+    def test_rejects_empty_token(self):
+        with pytest.raises(ValueError, match="invalid characters"):
+            validate_board("board/")
+
+    def test_allows_hyphens_and_underscores(self):
+        warnings = validate_board("my-board_v2")
+        assert isinstance(warnings, list)
+
+    def test_rejects_leading_hyphen(self):
+        with pytest.raises(ValueError, match="invalid characters"):
+            validate_board("-board")
 
     def test_includes_board_when_provided(self):
         steps = next_steps("T1", "myapp", board="nrf52840dk")

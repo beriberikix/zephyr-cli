@@ -8,7 +8,55 @@ Three topologies:
 
 from __future__ import annotations
 
+import os
+import re
 from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Board validation
+# ---------------------------------------------------------------------------
+
+# Zephyr board identifiers: <board> or <board>/<soc> or <board>/<soc>/<variant>
+_BOARD_TOKEN_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
+
+
+def validate_board(board: str) -> list[str]:
+    """Validate a board identifier and return a list of warnings (may be empty).
+
+    Raises ``ValueError`` if the board string is syntactically invalid.
+    Returns warnings (not errors) if the board is not found under
+    ``$ZEPHYR_BASE/boards``; out-of-tree boards are common and valid.
+    """
+    warnings: list[str] = []
+    parts = board.split("/")
+    if len(parts) > 3:
+        raise ValueError(
+            f"Invalid board identifier {board!r}: expected "
+            "<board>, <board>/<soc>, or <board>/<soc>/<variant>."
+        )
+    for part in parts:
+        if not _BOARD_TOKEN_RE.match(part):
+            raise ValueError(
+                f"Invalid board identifier {board!r}: "
+                f"token {part!r} contains invalid characters. "
+                "Board tokens may only contain letters, digits, hyphens, and underscores."
+            )
+
+    # Soft check: see if the board directory exists under ZEPHYR_BASE
+    zephyr_base = os.environ.get("ZEPHYR_BASE")
+    if zephyr_base:
+        boards_dir = Path(zephyr_base) / "boards"
+        if boards_dir.is_dir():
+            board_name = parts[0]
+            # boards/ has vendor subdirs, so search recursively
+            matches = list(boards_dir.rglob(board_name))
+            if not matches:
+                warnings.append(
+                    f"Board {board_name!r} was not found under {boards_dir}. "
+                    "It may be an out-of-tree board; proceeding anyway."
+                )
+
+    return warnings
 
 # ---------------------------------------------------------------------------
 # Template helpers

@@ -51,6 +51,11 @@ class TestEnvCommand:
         data = json.loads(result.output)
         assert isinstance(data["installed_skills"], list)
 
+    def test_env_has_west_agent_reason_field(self):
+        result = runner.invoke(app, ["env"])
+        data = json.loads(result.output)
+        assert "west_agent_reason" in data
+
 
 class TestSubcommandsShowHelp:
     """Phase 1 sub-apps should show help (exit 0) when invoked without args."""

@@ -1,0 +1,6 @@
+west-commands:
+  - file: src/zephyr_cli/west_agent/__init__.py
+    commands:
+      - name: agent
+        class: AgentCommand
+        help: Workspace commands for AI agents and CI pipelines.

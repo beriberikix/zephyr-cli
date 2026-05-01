@@ -14,6 +14,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import time
@@ -23,6 +25,100 @@ from typing import ClassVar
 from west.commands import WestCommand
 
 # ---------------------------------------------------------------------------
+# Runner warning filter - strips noisy lines from flash/debug stderr
+# ---------------------------------------------------------------------------
+
+_RUNNER_NOISE_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"^WARNING:\s*(?:esptool|openocd|pyocd|JLink)", re.IGNORECASE),
+    re.compile(r"^\*\*\*\s*WARNING", re.IGNORECASE),
+    re.compile(r"^WARNING:.*deprecated", re.IGNORECASE),
+    re.compile(r"^WARNING:.*not recommended", re.IGNORECASE),
+]
+
+
+def _filter_runner_output(stderr: str) -> tuple[str, list[str]]:
+    """Separate actionable output from noisy runner warnings.
+
+    Returns (filtered_stderr, suppressed_warnings).
+    """
+    kept: list[str] = []
+    suppressed: list[str] = []
+    for raw_line in stderr.splitlines():
+        line = raw_line.strip()
+        if any(p.search(line) for p in _RUNNER_NOISE_PATTERNS):
+            suppressed.append(line)
+        else:
+            kept.append(raw_line)
+    return "\n".join(kept), suppressed
+
+
+def _preflight_board_deps(board: str | None) -> list[dict[str, str]]:
+    """Check if common flash/debug tools for a board family are available.
+
+    Looks up the board directory under $ZEPHYR_BASE/boards/ and reads
+    board.cmake for the default runner, then verifies the runner tool
+    exists on PATH.  Returns a list of warning dicts (empty if all OK).
+    """
+    if not board:
+        return []
+
+    zephyr_base = os.environ.get("ZEPHYR_BASE")
+    if not zephyr_base:
+        return []
+
+    boards_root = Path(zephyr_base) / "boards"
+    if not boards_root.is_dir():
+        return []
+
+    # Resolve board directory: boards/<vendor>/<board>/ or boards/<board>/
+    board_slug = board.split("/")[0]  # strip qualifiers like nrf52840dk/nrf52840
+    board_dir: Path | None = None
+    for candidate in boards_root.rglob(board_slug):
+        if candidate.is_dir() and (candidate / "board.cmake").exists():
+            board_dir = candidate
+            break
+
+    if board_dir is None:
+        return []
+
+    # Parse board.cmake for default runner
+    board_cmake = board_dir / "board.cmake"
+    runner_re = re.compile(
+        r"board_set_(?:flash|debug)runner\((\w+)\)", re.IGNORECASE
+    )
+    runners: set[str] = set()
+    try:
+        for cmake_line in board_cmake.read_text().splitlines():
+            m = runner_re.search(cmake_line)
+            if m:
+                runners.add(m.group(1).lower())
+    except OSError:
+        return []
+
+    # Map runner names to CLI tool names
+    runner_to_tool: dict[str, str] = {
+        "openocd": "openocd",
+        "jlink": "JLinkExe",
+        "pyocd": "pyocd",
+        "esptool": "esptool.py",
+        "esp32": "esptool.py",
+        "stm32cubeprogrammer": "STM32_Programmer_CLI",
+        "nrfjprog": "nrfjprog",
+        "dfu-util": "dfu-util",
+    }
+
+    warnings: list[dict[str, str]] = []
+    for runner in runners:
+        tool = runner_to_tool.get(runner, runner)
+        if shutil.which(tool) is None:
+            warnings.append({
+                "runner": runner,
+                "tool": tool,
+                "message": f"Flash/debug runner '{runner}' requires '{tool}' which is not on PATH.",
+                "remediation": f"Install {tool} or configure a different runner with --runner.",
+            })
+
+    return warnings
 # Entry point: single 'west agent' command with subcommands
 # ---------------------------------------------------------------------------
 
@@ -362,6 +458,12 @@ class AgentCommand(WestCommand):
         extra_conf = getattr(args, "extra_conf", None)
         if extra_conf:
             env["OVERLAY_CONFIG"] = str(Path(extra_conf).resolve())
+
+        # Pre-build: check for missing flash/debug tools
+        dep_warnings = _preflight_board_deps(board)
+        if dep_warnings:
+            for w in dep_warnings:
+                self._emit({"type": "preflight_warning", **w}, fmt)
 
         start = time.monotonic()
         try:
@@ -885,6 +987,7 @@ class AgentCommand(WestCommand):
         duration = time.monotonic() - start
 
         combined = proc.stdout + proc.stderr
+        filtered, suppressed = _filter_runner_output(combined)
         status = "success" if proc.returncode == 0 else "error"
 
         result = FlashResult(
@@ -892,8 +995,9 @@ class AgentCommand(WestCommand):
             build_dir=str(bd),
             runner=runner,
             duration_seconds=round(duration, 2),
-            output=combined or None,
+            output=filtered or None,
             error=proc.stderr.strip() or None if proc.returncode != 0 else None,
+            suppressed_warnings=suppressed,
         )
         self._emit(result.model_dump(mode="json"), fmt)
         if proc.returncode != 0:
@@ -906,7 +1010,7 @@ class AgentCommand(WestCommand):
     def _run_debug(self, args: argparse.Namespace, fmt: str) -> None:
         import time
 
-        from zephyr_cli.schemas.debug import DebugResult
+        from zephyr_cli.schemas.debug import DebugResult, parse_debug_output
 
         bd = self._require_build_dir(args, fmt)
         assert bd is not None
@@ -946,6 +1050,7 @@ class AgentCommand(WestCommand):
                     build_dir=str(bd),
                     output=(out + err) or None,
                     error="Debug server exited immediately.",
+                    server_started=False,
                 )
                 self._emit(result.model_dump(mode="json"), fmt)
                 raise SystemExit(1)
@@ -955,6 +1060,7 @@ class AgentCommand(WestCommand):
                 build_dir=str(bd),
                 pid=proc.pid,
                 gdb_port=gdb_port or 2331,
+                server_started=True,
             )
             self._emit(result.model_dump(mode="json"), fmt)
             return
@@ -970,13 +1076,18 @@ class AgentCommand(WestCommand):
         duration = time.monotonic() - start
 
         combined = proc_result.stdout + proc_result.stderr
+        filtered, suppressed = _filter_runner_output(combined)
+        attach_status, capabilities = parse_debug_output(combined)
         status = "success" if proc_result.returncode == 0 else "error"
         result = DebugResult(
             status=status,
             build_dir=str(bd),
             duration_seconds=round(duration, 2),
-            output=combined or None,
+            output=filtered or None,
             error=proc_result.stderr.strip() or None if proc_result.returncode != 0 else None,
+            attach_status=attach_status,
+            capabilities=capabilities,
+            suppressed_warnings=suppressed,
         )
         self._emit(result.model_dump(mode="json"), fmt)
         if proc_result.returncode != 0:

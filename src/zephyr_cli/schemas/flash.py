@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class FlashResult(BaseModel):
@@ -15,6 +15,7 @@ class FlashResult(BaseModel):
     duration_seconds: float | None = None
     output: str | None = None
     error: str | None = None
+    suppressed_warnings: list[str] = Field(default_factory=list)
 
     @field_validator("build_dir")
     @classmethod

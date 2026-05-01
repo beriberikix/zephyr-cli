@@ -40,20 +40,38 @@ def create_cmd(
     """Scaffold a new Zephyr application project (T1/T2/T3 topologies)."""
     parent = Path(output_dir).resolve() if output_dir else Path.cwd()
 
+    # Validate board identifier if provided
+    board_warnings: list[str] = []
+    if board is not None:
+        try:
+            board_warnings = create_core.validate_board(board)
+        except ValueError as exc:
+            emit(
+                {
+                    "status": "error",
+                    "reason": "invalid_board",
+                    "message": str(exc),
+                    "board": board,
+                },
+                fmt=fmt,
+            )
+            raise typer.Exit(1) from exc
+
     try:
         app_path, files = create_core.create_project(name, topology, parent)
         steps = create_core.next_steps(topology, name, board)
-        emit(
-            CreateResult(
-                status="created",
-                name=name,
-                topology=topology.upper(),
-                app_path=str(app_path),
-                files=files,
-                next_steps=steps,
-            ),
-            fmt=fmt,
+        result = CreateResult(
+            status="created",
+            name=name,
+            topology=topology.upper(),
+            app_path=str(app_path),
+            files=files,
+            next_steps=steps,
         )
+        data = result.model_dump()
+        if board_warnings:
+            data["warnings"] = board_warnings
+        emit(data, fmt=fmt)
     except FileExistsError as exc:
         emit_error(str(exc), fmt=fmt)
         raise typer.Exit(1) from exc

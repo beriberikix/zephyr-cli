@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -416,3 +417,198 @@ class TestRunDebugHandler:
             cmd._run_debug(self._make_args(str(bd), server=True), "json")
 
         assert captured[0]["status"] == "error"
+
+
+# ---------------------------------------------------------------------------
+# Debug capability parsing
+# ---------------------------------------------------------------------------
+
+
+class TestDebugCapabilities:
+    def test_parse_hw_breakpoints(self):
+        from zephyr_cli.schemas.debug import parse_debug_output
+
+        output = "Number of hardware breakpoints: 6\nRemote debugging using :3333\n"
+        attach_status, caps = parse_debug_output(output)
+        assert caps.hardware_breakpoints == 6
+        assert attach_status == "connected"
+
+    def test_parse_sw_breakpoints(self):
+        from zephyr_cli.schemas.debug import parse_debug_output
+
+        output = "software breakpoints: 4\n"
+        _, caps = parse_debug_output(output)
+        assert caps.software_breakpoints == 4
+
+    def test_parse_rtt_detected(self):
+        from zephyr_cli.schemas.debug import parse_debug_output
+
+        output = "SEGGER RTT initialized\nRTT channel 0\n"
+        _, caps = parse_debug_output(output)
+        assert caps.rtt is True
+
+    def test_parse_monitor_command(self):
+        from zephyr_cli.schemas.debug import parse_debug_output
+
+        output = "Use 'monitor command' to interact\n"
+        _, caps = parse_debug_output(output)
+        assert caps.monitor_command is True
+
+    def test_connection_refused(self):
+        from zephyr_cli.schemas.debug import parse_debug_output
+
+        output = "Connection refused to localhost:3333\n"
+        attach_status, _ = parse_debug_output(output)
+        assert attach_status == "refused"
+
+    def test_timeout_detected(self):
+        from zephyr_cli.schemas.debug import parse_debug_output
+
+        output = "Timed out waiting for target\n"
+        attach_status, _ = parse_debug_output(output)
+        assert attach_status == "timeout"
+
+    def test_empty_output(self):
+        from zephyr_cli.schemas.debug import parse_debug_output
+
+        attach_status, caps = parse_debug_output("")
+        assert attach_status is None
+        assert caps.hardware_breakpoints is None
+        assert caps.rtt is False
+
+    def test_debug_result_has_capabilities_field(self):
+        r = DebugResult(status="success")
+        assert r.capabilities is not None
+        assert r.capabilities.hardware_breakpoints is None
+        assert r.suppressed_warnings == []
+
+    def test_debug_result_server_started_field(self):
+        r = DebugResult(status="running", server_started=True, pid=1234)
+        assert r.server_started is True
+
+
+# ---------------------------------------------------------------------------
+# Runner warning filtering
+# ---------------------------------------------------------------------------
+
+
+class TestRunnerWarningFilter:
+    def test_filters_esptool_warning(self):
+        from zephyr_cli.west_agent import _filter_runner_output
+
+        stderr = "WARNING: esptool v4.7 has a known issue\nFlashing...\nDone.\n"
+        filtered, suppressed = _filter_runner_output(stderr)
+        assert "esptool" not in filtered
+        assert len(suppressed) == 1
+        assert "esptool" in suppressed[0]
+        assert "Flashing..." in filtered
+
+    def test_filters_openocd_warning(self):
+        from zephyr_cli.west_agent import _filter_runner_output
+
+        stderr = "WARNING: openocd deprecated option\nTarget halted.\n"
+        filtered, suppressed = _filter_runner_output(stderr)
+        assert len(suppressed) == 1
+        assert "Target halted." in filtered
+
+    def test_filters_deprecated_warning(self):
+        from zephyr_cli.west_agent import _filter_runner_output
+
+        stderr = "WARNING: This option is deprecated, use --new instead\nOK\n"
+        filtered, suppressed = _filter_runner_output(stderr)
+        assert len(suppressed) == 1
+        assert "OK" in filtered
+
+    def test_no_false_positives(self):
+        from zephyr_cli.west_agent import _filter_runner_output
+
+        stderr = "Flashing image...\nVerify OK\n"
+        filtered, suppressed = _filter_runner_output(stderr)
+        assert suppressed == []
+        assert "Flashing image..." in filtered
+
+    def test_flash_result_has_suppressed_warnings(self):
+        r = FlashResult(status="success", suppressed_warnings=["warning1"])
+        assert r.suppressed_warnings == ["warning1"]
+
+    def test_flash_handler_filters_warnings(self, tmp_path):
+        bd = _make_build_dir(tmp_path)
+        from zephyr_cli.west_agent import AgentCommand
+
+        cmd = AgentCommand()
+        captured: list[dict] = []
+        cmd._emit = lambda d, _fmt: captured.append(d)  # type: ignore[method-assign]
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "Flashing...\n"
+        mock_proc.stderr = "WARNING: esptool noise\n"
+
+        with patch("zephyr_cli.west_agent.subprocess.run", return_value=mock_proc):
+            cmd._run_flash(
+                argparse.Namespace(build_dir=str(bd), runner=None, extra_args=[]),
+                "json",
+            )
+
+        assert len(captured[0]["suppressed_warnings"]) == 1
+        assert "esptool" in captured[0]["suppressed_warnings"][0]
+
+
+# ---------------------------------------------------------------------------
+# Preflight board dependency check
+# ---------------------------------------------------------------------------
+
+
+class TestPreflightBoardDeps:
+    def test_detects_missing_runner_tool(self, tmp_path, monkeypatch):
+        from zephyr_cli.west_agent import _preflight_board_deps
+
+        # Set up fake ZEPHYR_BASE with board dir
+        zephyr_base = tmp_path / "zephyr"
+        boards = zephyr_base / "boards" / "vendor" / "myboard"
+        boards.mkdir(parents=True)
+        (boards / "board.cmake").write_text(
+            "board_set_flashrunner(openocd)\n"
+        )
+        monkeypatch.setenv("ZEPHYR_BASE", str(zephyr_base))
+        # Ensure openocd is not on PATH
+        monkeypatch.setattr("shutil.which", lambda t: None)
+
+        warnings = _preflight_board_deps("myboard")
+        assert len(warnings) == 1
+        assert warnings[0]["runner"] == "openocd"
+        assert warnings[0]["tool"] == "openocd"
+
+    def test_no_warning_when_tool_exists(self, tmp_path, monkeypatch):
+        from zephyr_cli.west_agent import _preflight_board_deps
+
+        zephyr_base = tmp_path / "zephyr"
+        boards = zephyr_base / "boards" / "vendor" / "myboard"
+        boards.mkdir(parents=True)
+        (boards / "board.cmake").write_text(
+            "board_set_flashrunner(openocd)\n"
+        )
+        monkeypatch.setenv("ZEPHYR_BASE", str(zephyr_base))
+        monkeypatch.setattr("shutil.which", lambda t: "/usr/bin/openocd")
+
+        warnings = _preflight_board_deps("myboard")
+        assert warnings == []
+
+    def test_no_zephyr_base(self, monkeypatch):
+        from zephyr_cli.west_agent import _preflight_board_deps
+
+        monkeypatch.delenv("ZEPHYR_BASE", raising=False)
+        assert _preflight_board_deps("nrf52840dk") == []
+
+    def test_no_board(self):
+        from zephyr_cli.west_agent import _preflight_board_deps
+
+        assert _preflight_board_deps(None) == []
+
+    def test_board_not_found(self, tmp_path, monkeypatch):
+        from zephyr_cli.west_agent import _preflight_board_deps
+
+        zephyr_base = tmp_path / "zephyr"
+        (zephyr_base / "boards").mkdir(parents=True)
+        monkeypatch.setenv("ZEPHYR_BASE", str(zephyr_base))
+        assert _preflight_board_deps("nonexistent") == []

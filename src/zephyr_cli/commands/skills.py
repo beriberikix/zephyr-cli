@@ -168,7 +168,7 @@ def skills_suggest(
     ] = None,
     dts: Annotated[
         str | None,
-        typer.Option("--dts", help="Comma-separated DTS compatible strings."),
+        typer.Option("--dts", "--dts-compatible", help="Comma-separated DTS compatible strings."),
     ] = None,
     fmt: Annotated[str, typer.Option("--format", "-f")] = "json",
 ) -> None:

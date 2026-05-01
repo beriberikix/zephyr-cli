@@ -49,6 +49,9 @@ dev = [
 [project.scripts]
 zephyr-cli = "zephyr_cli.main:app"
 
+# NOTE: west does not discover extensions via Python entry points.
+# It uses west-commands.yml referenced from the workspace manifest (west.yml).
+# This entry point is kept for forward compatibility but has no runtime effect.
 [project.entry-points."west.commands"]
 agent = "zephyr_cli.west_agent:AgentCommand"
 
