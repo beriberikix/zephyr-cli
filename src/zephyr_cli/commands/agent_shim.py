@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
 
 from zephyr_cli.core.output import emit
+
 
 def agent_shim_cmd(
     ctx: typer.Context,
@@ -15,7 +17,7 @@ def agent_shim_cmd(
             help="Agent subcommand (e.g. build, inspect, emulate, test, flash, debug)."
         ),
     ],
-    rest: list[str] = typer.Argument(None, help="Additional arguments to pass to the agent."),
+    rest: Annotated[list[str] | None, typer.Argument(help="Additional arguments to pass to the agent.")] = None,
 ) -> None:
     """Run a west agent command.
     

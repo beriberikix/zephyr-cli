@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import typer
 
+from zephyr_cli.commands.agent_shim import agent_shim_cmd
 from zephyr_cli.commands.create import create_cmd
 from zephyr_cli.commands.docs import app as docs_app
 from zephyr_cli.commands.env import app as env_app
@@ -16,7 +17,6 @@ from zephyr_cli.commands.sdk import app as sdk_app
 from zephyr_cli.commands.skills import app as skills_app
 from zephyr_cli.commands.update import update_cmd
 from zephyr_cli.commands.version import app as version_app
-from zephyr_cli.commands.agent_shim import agent_shim_cmd
 
 app = typer.Typer(
     name="zephyr-cli",
