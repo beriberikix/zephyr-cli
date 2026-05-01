@@ -200,6 +200,10 @@ class TestRunTestHandler:
 
     def test_success_path(self, tmp_path, monkeypatch):
         monkeypatch.setenv("ZEPHYR_BASE", "/zephyr")
+        monkeypatch.setattr(
+            "zephyr_cli.west_agent._preflight_python_modules",
+            lambda _requirements: [],
+        )
 
         outdir = tmp_path / "twister-out"
         outdir.mkdir()
@@ -226,6 +230,10 @@ class TestRunTestHandler:
 
     def test_west_not_found(self, tmp_path, monkeypatch):
         monkeypatch.setenv("ZEPHYR_BASE", "/zephyr")
+        monkeypatch.setattr(
+            "zephyr_cli.west_agent._preflight_python_modules",
+            lambda _requirements: [],
+        )
         from zephyr_cli.west_agent import AgentCommand
 
         cmd = AgentCommand()
@@ -253,6 +261,35 @@ class TestRunTestHandler:
             cmd._run_test(args, "json")
 
         assert captured[0]["reason"] == "ZEPHYR_BASE_not_set"
+
+    def test_preflight_missing_python_dependencies(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ZEPHYR_BASE", "/zephyr")
+        from zephyr_cli.west_agent import AgentCommand
+
+        cmd = AgentCommand()
+        captured: list[dict] = []
+        cmd._emit = lambda d, _fmt: captured.append(d)  # type: ignore[method-assign]
+
+        monkeypatch.setattr(
+            "zephyr_cli.west_agent._preflight_python_modules",
+            lambda _requirements: [
+                {
+                    "module": "psutil",
+                    "package": "psutil",
+                    "message": "Missing Python package: psutil",
+                    "remediation": "pip install psutil",
+                }
+            ],
+        )
+
+        args = self._make_args(outdir=str(tmp_path / "twister-out"))
+
+        with patch("zephyr_cli.west_agent.subprocess.run") as run_mock, pytest.raises(SystemExit):
+            cmd._run_test(args, "json")
+
+        run_mock.assert_not_called()
+        assert captured[0]["reason"] == "missing_python_dependencies"
+        assert captured[0]["missing_dependencies"][0]["package"] == "psutil"
 
 
 # ---------------------------------------------------------------------------

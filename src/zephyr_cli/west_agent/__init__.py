@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import time
+from importlib import util
 from pathlib import Path
 from typing import ClassVar
 
@@ -33,6 +34,17 @@ _RUNNER_NOISE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"^\*\*\*\s*WARNING", re.IGNORECASE),
     re.compile(r"^WARNING:.*deprecated", re.IGNORECASE),
     re.compile(r"^WARNING:.*not recommended", re.IGNORECASE),
+]
+
+_BUILD_PYTHON_MODULES: list[tuple[str, str]] = [
+    ("jsonschema", "jsonschema"),
+]
+
+_TWISTER_PYTHON_MODULES: list[tuple[str, str]] = [
+    ("natsort", "natsort"),
+    ("junitparser", "junitparser"),
+    ("tabulate", "tabulate"),
+    ("psutil", "psutil"),
 ]
 
 
@@ -50,6 +62,37 @@ def _filter_runner_output(stderr: str) -> tuple[str, list[str]]:
         else:
             kept.append(raw_line)
     return "\n".join(kept), suppressed
+
+
+def _preflight_python_modules(
+    requirements: list[tuple[str, str]],
+) -> list[dict[str, str]]:
+    """Return missing Python modules for the active runtime.
+
+    Each requirement is ``(module_name, package_name)`` so the emitted
+    remediation can stay user-facing even when the import name differs.
+    """
+    missing: list[dict[str, str]] = []
+    seen_packages: set[str] = set()
+
+    for module_name, package_name in requirements:
+        try:
+            available = util.find_spec(module_name) is not None
+        except (ImportError, AttributeError, ValueError):
+            available = False
+        if available or package_name in seen_packages:
+            continue
+        seen_packages.add(package_name)
+        missing.append(
+            {
+                "module": module_name,
+                "package": package_name,
+                "message": f"Missing Python package: {package_name}",
+                "remediation": f"pip install {package_name}",
+            }
+        )
+
+    return missing
 
 
 def _preflight_board_deps(board: str | None) -> list[dict[str, str]]:
@@ -430,6 +473,7 @@ class AgentCommand(WestCommand):
 
     def _run_build(self, args: argparse.Namespace, fmt: str) -> None:
         from zephyr_cli.schemas.build import (
+            BuildError,
             BuildResult,
             BuildStatus,
             locate_binaries,
@@ -464,6 +508,28 @@ class AgentCommand(WestCommand):
         if dep_warnings:
             for w in dep_warnings:
                 self._emit({"type": "preflight_warning", **w}, fmt)
+
+        missing_python = _preflight_python_modules(_BUILD_PYTHON_MODULES)
+        if missing_python:
+            output = BuildResult(
+                status=BuildStatus.ERROR,
+                board=board,
+                build_dir=build_dir,
+                errors=[
+                    BuildError(
+                        message=item["message"],
+                        error_type="missing_package",
+                        remediation=item["remediation"],
+                    )
+                    for item in missing_python
+                ],
+                raw_stderr=(
+                    "Missing Python packages in the active Zephyr runtime: "
+                    + ", ".join(item["package"] for item in missing_python)
+                ),
+            )
+            self._emit(output.model_dump(mode="json"), fmt)
+            raise SystemExit(1)
 
         start = time.monotonic()
         try:
@@ -926,6 +992,23 @@ class AgentCommand(WestCommand):
             cmd.append("--build-only")
         if inline_logs:
             cmd.append("--inline-logs")
+
+        missing_python = _preflight_python_modules(_TWISTER_PYTHON_MODULES)
+        if missing_python:
+            self._emit(
+                {
+                    "status": "error",
+                    "reason": "missing_python_dependencies",
+                    "output_dir": str(Path(outdir).resolve()),
+                    "missing_dependencies": missing_python,
+                    "hint": (
+                        "Install the missing packages in the active Zephyr Python "
+                        "environment before running west twister."
+                    ),
+                },
+                fmt,
+            )
+            raise SystemExit(1)
 
         start = time.monotonic()
         try:

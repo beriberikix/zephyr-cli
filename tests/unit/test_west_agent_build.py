@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
+from unittest.mock import patch
+
+import pytest
+
 from zephyr_cli.schemas.build import BuildStatus, locate_binaries, parse_build_output
 
 
@@ -114,3 +119,43 @@ class TestParseBuildOutputRemediation:
 
         e = BuildError(message="test")
         assert e.remediation is None
+
+
+class TestRunBuildHandler:
+    def test_preflight_missing_python_dependencies(self, tmp_path, monkeypatch):
+        source_dir = tmp_path / "app"
+        source_dir.mkdir()
+
+        from zephyr_cli.west_agent import AgentCommand
+
+        cmd = AgentCommand()
+        captured: list[dict] = []
+        cmd._emit = lambda d, _fmt: captured.append(d)  # type: ignore[method-assign]
+
+        monkeypatch.setattr(
+            "zephyr_cli.west_agent._preflight_python_modules",
+            lambda _requirements: [
+                {
+                    "module": "jsonschema",
+                    "package": "jsonschema",
+                    "message": "Missing Python package: jsonschema",
+                    "remediation": "pip install jsonschema",
+                }
+            ],
+        )
+
+        args = argparse.Namespace(
+            board="qemu_cortex_m3",
+            build_dir=str(tmp_path / "build"),
+            pristine=False,
+            extra_conf=None,
+            source_dir=str(source_dir),
+        )
+
+        with patch("zephyr_cli.west_agent.subprocess.run") as run_mock, pytest.raises(SystemExit):
+            cmd._run_build(args, "json")
+
+        run_mock.assert_not_called()
+        assert captured[0]["status"] == "error"
+        assert captured[0]["errors"][0]["error_type"] == "missing_package"
+        assert "jsonschema" in captured[0]["raw_stderr"]
