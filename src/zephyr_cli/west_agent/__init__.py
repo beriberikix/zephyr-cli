@@ -95,6 +95,18 @@ def _preflight_python_modules(
     return missing
 
 
+def _west_command() -> list[str] | None:
+    """Return a runtime-aware west invocation."""
+    if util.find_spec("west") is not None:
+        return [sys.executable, "-m", "west"]
+
+    west_path = shutil.which("west")
+    if west_path is not None:
+        return [west_path]
+
+    return None
+
+
 def _preflight_board_deps(board: str | None) -> list[dict[str, str]]:
     """Check if common flash/debug tools for a board family are available.
 
@@ -491,8 +503,22 @@ class AgentCommand(WestCommand):
             build_dir = str(Path(source_dir) / "build" / slug)
         build_dir = str(Path(build_dir).resolve())
 
+        west_cmd = _west_command()
+        if west_cmd is None:
+            self._emit(
+                BuildResult(
+                    status=BuildStatus.ERROR,
+                    board=board,
+                    build_dir=build_dir,
+                    errors=[],
+                    raw_stderr="west not found. Is it installed and on PATH?",
+                ).model_dump(mode="json"),
+                fmt,
+            )
+            raise SystemExit(1)
+
         # Construct west build command
-        cmd = ["west", "build", "-s", source_dir, "-d", build_dir]
+        cmd = [*west_cmd, "build", "-s", source_dir, "-d", build_dir]
         if board:
             cmd += ["-b", board]
         if getattr(args, "pristine", False):
@@ -980,8 +1006,14 @@ class AgentCommand(WestCommand):
         timeout_mult: float = getattr(args, "timeout_multiplier", 1.0)
         inline_logs: bool = getattr(args, "inline_logs", False)
 
+        west_cmd = _west_command()
+        if west_cmd is None:
+            self._emit({"status": "error", "reason": "west_not_found"}, fmt)
+            raise SystemExit(1)
+
         cmd = [
-            "west", "twister",
+            *west_cmd,
+            "twister",
             "-T", str(Path(test_dir).resolve()),
             "-O", str(Path(outdir).resolve()),
             "--timeout-multiplier", str(timeout_mult),
@@ -1061,7 +1093,12 @@ class AgentCommand(WestCommand):
         runner: str | None = getattr(args, "runner", None)
         extra_args: list[str] = [a for a in (getattr(args, "extra_args", None) or []) if a != "--"]
 
-        cmd = ["west", "flash", "-d", str(bd)]
+        west_cmd = _west_command()
+        if west_cmd is None:
+            self._emit({"status": "error", "reason": "west_not_found"}, fmt)
+            raise SystemExit(1)
+
+        cmd = [*west_cmd, "flash", "-d", str(bd)]
         if runner:
             cmd += ["--runner", runner]
         if extra_args:
@@ -1109,6 +1146,11 @@ class AgentCommand(WestCommand):
         gdb_port: int | None = getattr(args, "gdb_port", None)
         rtt_timeout: float = getattr(args, "rtt_timeout", 30.0)
 
+        west_cmd = _west_command()
+        if west_cmd is None:
+            self._emit({"status": "error", "reason": "west_not_found"}, fmt)
+            raise SystemExit(1)
+
         # --- RTT streaming mode ---
         if rtt_port is not None:
             self._run_debug_rtt(bd, rtt_port, rtt_timeout, fmt)
@@ -1116,7 +1158,7 @@ class AgentCommand(WestCommand):
 
         # --- Server mode: start west debugserver in background ---
         if server_mode:
-            cmd = ["west", "debugserver", "-d", str(bd)]
+            cmd = [*west_cmd, "debugserver", "-d", str(bd)]
             if gdb_port:
                 cmd += ["--gdb-port", str(gdb_port)]
             try:
@@ -1156,7 +1198,7 @@ class AgentCommand(WestCommand):
 
         # --- Attach mode: west debug (blocking) ---
         start = time.monotonic()
-        cmd = ["west", "debug", "-d", str(bd)]
+        cmd = [*west_cmd, "debug", "-d", str(bd)]
         try:
             proc_result = subprocess.run(cmd, capture_output=True, text=True)
         except FileNotFoundError:
