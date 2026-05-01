@@ -101,27 +101,28 @@ def install_skill(
 
     return dest, written
 
+
 def apply_skill(
     skill: SkillEntry,
     workspace_root: Path,
     target_path: Path,
 ) -> tuple[Path, list[str]]:
     """Download a skill's template assets and scripts directly into a target path.
-    
+
     Skips 'SKILL.md' and moves 'assets/' and 'scripts/' contents directly
     into the target directory to automate template injection.
-    
+
     Returns ``(target_path, copied_files_list)``.
     """
     target_path.mkdir(parents=True, exist_ok=True)
-    
+
     files_to_fetch = skill.files if skill.files else ["SKILL.md"]
     applied_files = []
 
     for rel_file in files_to_fetch:
         if rel_file == "SKILL.md" or rel_file.startswith("references/"):
             continue
-            
+
         url = f"{RAW_BASE}/{skill.path}/{rel_file}"
         resp = httpx.get(url, follow_redirects=True, timeout=30)
         resp.raise_for_status()
@@ -132,6 +133,7 @@ def apply_skill(
         applied_files.append(str(target.relative_to(workspace_root)))
 
     return target_path, applied_files
+
 
 # ---------------------------------------------------------------------------
 # List installed

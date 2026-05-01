@@ -64,7 +64,7 @@ class SkillSuggestResult(BaseModel):
 
 class SkillApplyResult(BaseModel):
     """Result of the skills apply command."""
-    
+
     status: str
     name: str
     target: str = ""

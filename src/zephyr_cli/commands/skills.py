@@ -199,15 +199,24 @@ def skills_suggest(
         fmt=fmt,
     )
 
+
 # ---------------------------------------------------------------------------
 # apply
 # ---------------------------------------------------------------------------
 
+
 @app.command("apply")
 def skills_apply(
     ctx: typer.Context,
-    name: Annotated[str, typer.Argument(help="Skill name to apply templates from (e.g. 'connectivity-ble').")],
-    target: Annotated[str, typer.Option("--target", "-t", help="Target directory for templates (relative to workspace).")] = "src",
+    name: Annotated[
+        str, typer.Argument(help="Skill name to apply templates from (e.g. 'connectivity-ble').")
+    ],
+    target: Annotated[
+        str,
+        typer.Option(
+            "--target", "-t", help="Target directory for templates (relative to workspace)."
+        ),
+    ] = "src",
     fmt: Annotated[str, typer.Option("--format", "-f")] = "json",
 ) -> None:
     """Inject templates and assets directly from a skill into your project."""
@@ -231,6 +240,7 @@ def skills_apply(
     target_path = ws_root / target
     try:
         from zephyr_cli.schemas.skills import SkillApplyResult
+
         _, applied = reg.apply_skill(skill, ws_root, target_path)
         if not applied:
             emit(

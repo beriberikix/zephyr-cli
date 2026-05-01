@@ -39,7 +39,9 @@ app.add_typer(sdk_app, name="sdk")
 app.command("create")(create_cmd)
 app.add_typer(docs_app, name="docs")
 app.command("update")(update_cmd)
-app.command("agent", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(agent_shim_cmd)
+app.command("agent", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
+    agent_shim_cmd
+)
 
 
 if __name__ == "__main__":

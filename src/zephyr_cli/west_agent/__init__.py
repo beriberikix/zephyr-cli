@@ -824,7 +824,11 @@ class AgentCommand(WestCommand):
 
         result = backend.run(bd, timeout=timeout or None, extra_args=extra_args)
         self._emit(result.model_dump(mode="json"), fmt)
-        if result.status not in (EmulateStatus.SUCCESS, EmulateStatus.SESSION_CAPPED, EmulateStatus.TIMEOUT):
+        if result.status not in (
+            EmulateStatus.SUCCESS,
+            EmulateStatus.SESSION_CAPPED,
+            EmulateStatus.TIMEOUT,
+        ):
             raise SystemExit(1)
 
     # ------------------------------------------------------------------

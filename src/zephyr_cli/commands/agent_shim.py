@@ -13,14 +13,14 @@ def agent_shim_cmd(
     ctx: typer.Context,
     subcommand: Annotated[
         str,
-        typer.Argument(
-            help="Agent subcommand (e.g. build, inspect, emulate, test, flash, debug)."
-        ),
+        typer.Argument(help="Agent subcommand (e.g. build, inspect, emulate, test, flash, debug)."),
     ],
-    rest: Annotated[list[str] | None, typer.Argument(help="Additional arguments to pass to the agent.")] = None,
+    rest: Annotated[
+        list[str] | None, typer.Argument(help="Additional arguments to pass to the agent.")
+    ] = None,
 ) -> None:
     """Run a west agent command.
-    
+
     This is a shim for `west agent <command>` that provides better JSON error
     output if you invoke it outside of a west workspace, rather than raw west errors.
     """
@@ -41,7 +41,7 @@ def agent_shim_cmd(
         topdir = west_topdir(fall_back=False)
     except Exception:
         topdir = None
-        
+
     if not topdir:
         emit(
             {
@@ -63,4 +63,3 @@ def agent_shim_cmd(
 
     result = subprocess.run(args)
     sys.exit(result.returncode)
-
