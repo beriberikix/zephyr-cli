@@ -2,9 +2,32 @@
 
 Agent-optimized CLI for Zephyr RTOS.
 
-`zephyr-cli` is the primary interface for AI coding agents and CI pipelines to interact with, scaffold, build, and inspect Zephyr RTOS projects. It consists of a global `zephyr-cli` Python package and a `west agent` workspace extension.
+Whether you're using GitHub Copilot, Claude Code, Gemini CLI, Cursor, or any other AI coding agent, `zephyr-cli` ensures that high-quality Zephyr RTOS development is possible everywhere — from your terminal, your editor, and your CI pipeline.
 
-All commands emit **structured JSON by default** in non-TTY contexts. Pass `--format human` (or pipe through a TTY) for human-readable output.
+## Why zephyr-cli?
+
+AI coding agents perform best when they have a **lightweight, programmatic interface** to interact with the SDK and development environment. Without one, agents waste tokens parsing human-readable logs, guess at build system flags, and hallucinate Kconfig symbols that don't exist.
+
+`zephyr-cli` eliminates the guesswork. Every command emits **structured JSON by default**, giving agents exactly the context they need — board configurations, Kconfig dependency trees, devicetree node mappings, build errors with file locations — without scraping free-form text.
+
+The result: agents that are **faster**, **more accurate**, and capable of following Zephyr's recommended patterns and best practices on every build.
+
+### Key design principles
+
+- **Agent-first, human-friendly.** JSON output is the default in non-TTY contexts. Pass `--format human` for rich terminal output.
+- **Works with any agent.** No vendor lock-in. Any tool that can read stdout can use `zephyr-cli`.
+- **Skills ground your agent in real Zephyr knowledge.** Traditional docs are conceptual and high-level. [Zephyr skills](https://github.com/beriberikix/zephyr-agent-skills) are modular, markdown-based instruction sets (`SKILL.md`) that provide precise, actionable specifications — from BLE GATT setup to devicetree overlay patterns — so agents follow current best practices instead of outdated training data.
+- **LLM-optimized documentation.** The [zephyrdocs.md](https://github.com/beriberikix/zephyrdocs.md) project provides locally-available, LLM-optimized Zephyr documentation — so agents can ground their responses in up-to-date guidance even when an LLM's training cutoff predates the latest Zephyr release.
+- **Built for CI too.** While `zephyr-cli` empowers agentic development flows, it's equally useful for scripted automation, maintenance pipelines, and the increasingly distributed nature of embedded development.
+
+## What's included
+
+`zephyr-cli` is a suite of tools for agentic Zephyr workflows:
+
+- **`zephyr-cli`** — a global Python CLI for environment setup, SDK management, project scaffolding, skills, and documentation.
+- **`west agent`** — a workspace-scoped [west](https://docs.zephyrproject.org/latest/develop/west/index.html) extension for building, inspecting, emulating, testing, flashing, and debugging — all with structured output.
+- **[Zephyr Skills](https://github.com/beriberikix/zephyr-agent-skills)** — a curated registry of agent-ready knowledge packs covering BLE, devicetree, build systems, board bringup, and more.
+- **[zephyrdocs.md](https://github.com/beriberikix/zephyrdocs.md)** — LLM-optimized local documentation so agents always have the latest Zephyr guidance available as context.
 
 ## Requirements
 
