@@ -187,17 +187,23 @@ class TestFlashResultSchema:
 
 class TestDebugResultSchema:
     def test_server_mode(self):
-        r = DebugResult(status="running", pid=1234, gdb_port=2331)
+        r = DebugResult(status="running", board="nrf52840dk/nrf52840", runner="jlink", pid=1234, gdb_port=2331)
         assert r.status == "running"
+        assert r.board == "nrf52840dk/nrf52840"
+        assert r.runner == "jlink"
         assert r.pid == 1234
         assert r.gdb_port == 2331
 
     def test_error_mode(self):
-        r = DebugResult(status="error", error="west debug failed")
+        r = DebugResult(status="error", board="esp32s3_devkitc", runner="openocd", error="west debug failed")
         assert r.status == "error"
+        assert r.board == "esp32s3_devkitc"
+        assert r.runner == "openocd"
 
     def test_optional_fields(self):
         r = DebugResult(status="success")
+        assert r.board is None
+        assert r.runner is None
         assert r.pid is None
         assert r.rtt_port is None
         assert r.gdb_port is None
@@ -450,6 +456,8 @@ class TestRunDebugHandler:
 
     def test_attach_mode_success(self, tmp_path):
         bd = _make_build_dir(tmp_path)
+        _write_board_config(bd, "nrf52840dk/nrf52840")
+        _write_runners_yaml(bd, debug_runner="jlink")
         from zephyr_cli.west_agent import AgentCommand
 
         cmd = AgentCommand()
@@ -465,9 +473,13 @@ class TestRunDebugHandler:
             cmd._run_debug(self._make_args(str(bd)), "json")
 
         assert captured[0]["status"] == "success"
+        assert captured[0]["board"] == "nrf52840dk/nrf52840"
+        assert captured[0]["runner"] == "jlink"
 
     def test_attach_mode_failure(self, tmp_path):
         bd = _make_build_dir(tmp_path)
+        _write_board_config(bd, "esp32s3_devkitc")
+        _write_runners_yaml(bd, debug_runner="openocd")
         from zephyr_cli.west_agent import AgentCommand
 
         cmd = AgentCommand()
@@ -483,9 +495,13 @@ class TestRunDebugHandler:
             cmd._run_debug(self._make_args(str(bd)), "json")
 
         assert captured[0]["status"] == "error"
+        assert captured[0]["board"] == "esp32s3_devkitc"
+        assert captured[0]["runner"] == "openocd"
 
     def test_server_mode_starts_process(self, tmp_path):
         bd = _make_build_dir(tmp_path)
+        _write_board_config(bd, "nrf52840dk/nrf52840")
+        _write_runners_yaml(bd, debug_runner="jlink")
         from zephyr_cli.west_agent import AgentCommand
 
         cmd = AgentCommand()
@@ -500,10 +516,14 @@ class TestRunDebugHandler:
             cmd._run_debug(self._make_args(str(bd), server=True), "json")
 
         assert captured[0]["status"] == "running"
+        assert captured[0]["board"] == "nrf52840dk/nrf52840"
+        assert captured[0]["runner"] == "jlink"
         assert captured[0]["pid"] == 4242
 
     def test_server_mode_exits_immediately_is_error(self, tmp_path):
         bd = _make_build_dir(tmp_path)
+        _write_board_config(bd, "esp32s3_devkitc")
+        _write_runners_yaml(bd, debug_runner="openocd")
         from zephyr_cli.west_agent import AgentCommand
 
         cmd = AgentCommand()
@@ -519,6 +539,8 @@ class TestRunDebugHandler:
             cmd._run_debug(self._make_args(str(bd), server=True), "json")
 
         assert captured[0]["status"] == "error"
+        assert captured[0]["board"] == "esp32s3_devkitc"
+        assert captured[0]["runner"] == "openocd"
 
     def test_native_runner_fails_fast_without_spawning_west(self, tmp_path):
         bd = _make_build_dir(tmp_path)

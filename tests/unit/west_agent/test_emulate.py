@@ -15,19 +15,28 @@ from zephyr_cli.schemas.emulate import EmulateBackendName, EmulateResult, Emulat
 # ---------------------------------------------------------------------------
 
 RUNNERS_YAML_WITH_QEMU = """\
-board_dir: /zephyr/boards/arm/qemu_cortex_m3
-elf_file: /build/zephyr/zephyr.elf
+# Available runners configured by board.cmake.
 runners:
-  qemu: {}
-  openocd: {}
+- qemu
+- openocd
+
+# Default debug runner if --runner is not given.
+debug-runner: openocd
+
+config:
+    board_dir: /zephyr/boards/arm/qemu_cortex_m3
+    elf_file: /build/zephyr/zephyr.elf
 """
 
 RUNNERS_YAML_NO_QEMU = """\
-board_dir: /zephyr/boards/arm/nrf52840dk
-elf_file: /build/zephyr/zephyr.elf
+# Available runners configured by board.cmake.
 runners:
-  openocd: {}
-  jlink: {}
+- openocd
+- jlink
+
+config:
+    board_dir: /zephyr/boards/arm/nrf52840dk
+    elf_file: /build/zephyr/zephyr.elf
 """
 
 

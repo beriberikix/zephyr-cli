@@ -19,7 +19,9 @@ class DebugCapabilities(BaseModel):
 
 class DebugResult(BaseModel):
     status: str  # "running" | "success" | "error" | "timeout"
+    board: str | None = None
     build_dir: str | None = None
+    runner: str | None = None  # e.g. openocd, jlink, pyocd
     # Server mode fields
     pid: int | None = None
     gdb_port: int | None = None

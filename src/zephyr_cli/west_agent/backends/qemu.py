@@ -15,6 +15,7 @@ from pathlib import Path
 
 from zephyr_cli.schemas.emulate import EmulateBackendName, EmulateResult, EmulateStatus
 from zephyr_cli.west_agent.backends.base import EmulationBackend
+from zephyr_cli.west_agent.runners import runner_names
 
 
 class QemuBackend(EmulationBackend):
@@ -26,18 +27,7 @@ class QemuBackend(EmulationBackend):
 
     def can_run(self, build_dir: Path) -> bool:
         """Return True if runners.yaml exists and lists the qemu runner."""
-        runners_yaml = build_dir / "zephyr" / "runners.yaml"
-        if not runners_yaml.exists():
-            return False
-        try:
-            import yaml  # type: ignore[import-untyped]
-
-            with open(runners_yaml) as fh:
-                data = yaml.safe_load(fh) or {}
-            runners = data.get("runners", {})
-            return isinstance(runners, dict) and "qemu" in runners
-        except Exception:
-            return False
+        return "qemu" in runner_names(build_dir)
 
     def run(
         self,

@@ -25,6 +25,12 @@ from typing import ClassVar
 
 from west.commands import WestCommand
 
+from zephyr_cli.west_agent.runners import (
+    default_runner as _parsed_default_runner,
+    runner_config_list as _parsed_runner_config_list,
+    runner_config_value as _parsed_runner_config_value,
+)
+
 # ---------------------------------------------------------------------------
 # Runner warning filter - strips noisy lines from flash/debug stderr
 # ---------------------------------------------------------------------------
@@ -46,11 +52,6 @@ _TWISTER_PYTHON_MODULES: list[tuple[str, str]] = [
     ("tabulate", "tabulate"),
     ("psutil", "psutil"),
 ]
-
-_RUNNER_FIELD_PATTERNS: dict[str, re.Pattern[str]] = {
-    "flash": re.compile(r"^flash-runner:\s*(\S+)", re.IGNORECASE),
-    "debug": re.compile(r"^debug-runner:\s*(\S+)", re.IGNORECASE),
-}
 
 _CONFIG_BOARD_RE = re.compile(r'^CONFIG_BOARD="([^"]+)"$')
 _OPENOCD_FIND_RE = re.compile(r"source\s+\[find\s+([^\]]+)\]", re.IGNORECASE)
@@ -186,67 +187,17 @@ def _preflight_board_deps(board: str | None) -> list[dict[str, str]]:
 
 def _default_runner(build_dir: Path, operation: str) -> str | None:
     """Return the configured default runner for a built artifact."""
-    runners_yaml = build_dir / "zephyr" / "runners.yaml"
-    pattern = _RUNNER_FIELD_PATTERNS.get(operation)
-    if pattern is None or not runners_yaml.is_file():
-        return None
-
-    try:
-        for raw_line in runners_yaml.read_text().splitlines():
-            match = pattern.match(raw_line.strip())
-            if match:
-                return match.group(1)
-    except OSError:
-        return None
-
-    return None
+    return _parsed_default_runner(build_dir, operation)
 
 
 def _runner_config_value(build_dir: Path, key: str) -> str | None:
     """Return a simple scalar value from zephyr/runners.yaml's config block."""
-    runners_yaml = build_dir / "zephyr" / "runners.yaml"
-    if not runners_yaml.is_file():
-        return None
-
-    target = f"{key}:"
-    try:
-        for raw_line in runners_yaml.read_text().splitlines():
-            stripped = raw_line.strip()
-            if stripped.startswith(target):
-                return stripped.split(":", 1)[1].strip() or None
-    except OSError:
-        return None
-
-    return None
+    return _parsed_runner_config_value(build_dir, key)
 
 
 def _runner_config_list(build_dir: Path, key: str) -> list[str]:
     """Return a simple list value from zephyr/runners.yaml's config block."""
-    runners_yaml = build_dir / "zephyr" / "runners.yaml"
-    if not runners_yaml.is_file():
-        return []
-
-    items: list[str] = []
-    in_list = False
-    list_key = f"{key}:"
-    try:
-        for raw_line in runners_yaml.read_text().splitlines():
-            stripped = raw_line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            if in_list:
-                if stripped.startswith("-"):
-                    item = stripped[1:].strip()
-                    if item:
-                        items.append(item)
-                    continue
-                break
-            if stripped == list_key:
-                in_list = True
-    except OSError:
-        return []
-
-    return items
+    return _parsed_runner_config_list(build_dir, key)
 
 
 def _configured_board(build_dir: Path) -> str | None:
@@ -1320,6 +1271,8 @@ class AgentCommand(WestCommand):
         bd = self._require_build_dir(args, fmt)
         assert bd is not None
 
+        board = _configured_board(bd)
+        runner = _default_runner(bd, "debug")
         server_mode: bool = getattr(args, "server", False)
         rtt_port: int | None = getattr(args, "rtt_port", None)
         gdb_port: int | None = getattr(args, "gdb_port", None)
@@ -1342,7 +1295,7 @@ class AgentCommand(WestCommand):
 
         # --- RTT streaming mode ---
         if rtt_port is not None:
-            self._run_debug_rtt(bd, rtt_port, rtt_timeout, fmt)
+            self._run_debug_rtt(bd, runner, board, rtt_port, rtt_timeout, fmt)
             return
 
         # --- Server mode: start west debugserver in background ---
@@ -1367,7 +1320,9 @@ class AgentCommand(WestCommand):
                 out, err = proc.communicate()
                 result = DebugResult(
                     status="error",
+                    board=board,
                     build_dir=str(bd),
+                    runner=runner,
                     output=(out + err) or None,
                     error="Debug server exited immediately.",
                     server_started=False,
@@ -1377,7 +1332,9 @@ class AgentCommand(WestCommand):
 
             result = DebugResult(
                 status="running",
+                board=board,
                 build_dir=str(bd),
+                runner=runner,
                 pid=proc.pid,
                 gdb_port=gdb_port or 2331,
                 server_started=True,
@@ -1401,7 +1358,9 @@ class AgentCommand(WestCommand):
         status = "success" if proc_result.returncode == 0 else "error"
         result = DebugResult(
             status=status,
+            board=board,
             build_dir=str(bd),
+            runner=runner,
             duration_seconds=round(duration, 2),
             output=filtered or None,
             error=proc_result.stderr.strip() or None if proc_result.returncode != 0 else None,
@@ -1413,7 +1372,15 @@ class AgentCommand(WestCommand):
         if proc_result.returncode != 0:
             raise SystemExit(1)
 
-    def _run_debug_rtt(self, bd: Path, rtt_port: int, timeout: float, fmt: str) -> None:
+    def _run_debug_rtt(
+        self,
+        bd: Path,
+        runner: str | None,
+        board: str | None,
+        rtt_port: int,
+        timeout: float,
+        fmt: str,
+    ) -> None:
         """Connect to an RTT TCP server and stream output as NDJSON."""
         import socket
         import time
@@ -1425,6 +1392,9 @@ class AgentCommand(WestCommand):
                 {
                     "status": "error",
                     "reason": "rtt_connection_failed",
+                    "board": board,
+                    "build_dir": str(bd),
+                    "runner": runner,
                     "rtt_port": rtt_port,
                     "message": str(exc),
                     "hint": "Ensure the debug server is running with RTT enabled.",
