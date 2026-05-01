@@ -20,6 +20,19 @@ pip install zephyr-cli
 uv tool install zephyr-cli
 ```
 
+## Enable `west agent` in a workspace
+
+`west` discovers extension commands from `west-commands.yml` referenced by the workspace manifest.
+
+```bash
+# from the zephyr-cli repo root
+west init -l .
+west update
+
+# verify command is discoverable
+west help agent
+```
+
 ## Global commands (`zephyr-cli`)
 
 These commands work anywhere — no west workspace required.
@@ -142,20 +155,11 @@ jobs:
 ## Architecture
 
 - **`zephyr-cli`** — global Typer application; manages environment, SDK, project scaffolding, skills, and docs.
-- **`west agent`** — west extension registered via `entry_points["west.commands"]`; all workspace commands in one `WestCommand` subclass.
+- **`west agent`** — west extension discovered via `west-commands.yml` + workspace `west.yml`; all workspace commands in one `WestCommand` subclass.
 - **Skills** install into `<workspace>/.zephyr/skills/`; registry at `beriberikix/zephyr-agent-skills`.
 - **SDK** installs to `<data_dir>/sdks/` via `platformdirs`.
 - **Emulation backends** auto-detected in priority order: QEMU (`runners.yaml`) → native_sim → Docker → Multipass → remote (`ZEPHYR_CLI_REMOTE_URL`).
 - **JSON output** is the default in any non-TTY context; `--format human` opts in to rich-formatted output.
-
-## Status
-
-All planned phases complete — 210 unit tests, ruff and pyright clean.
-
-- [x] Phase 0 — `env`, `version`, `build`, `inspect` (kconfig/dts/memory/threads/modules/env), CI
-- [x] Phase 1 — `skills`, `sdk`, `create`, `docs`, `update`, skills registry, SDK manager
-- [x] Phase 2 — Full kconfiglib + edtlib integration, `inspect bindings`, `--search`/`--changed`/`--compatible`/`--chosen` flags
-- [x] Phase 3 — `emulate` (pluggable backends), `test` (Twister), `flash`, `debug` (RTT NDJSON streaming), GitHub Actions reusable workflow
 
 ## License
 
