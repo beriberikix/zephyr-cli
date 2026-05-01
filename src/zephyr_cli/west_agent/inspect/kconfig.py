@@ -12,6 +12,63 @@ import re
 import sys
 from pathlib import Path
 
+
+_KCONFIG_EXT_VAR_RE = re.compile(r"\$\((ZEPHYR_[A-Z0-9_]+_KCONFIG)\)")
+_KCONFIG_MODULE_DIR_RE = re.compile(r"(ZEPHYR_[A-Z0-9_]+_MODULE_DIR)=([^\s\)]+)")
+
+
+def _load_module_dir_env(build_dir: Path) -> dict[str, str]:
+    """Parse generated module-dir assignments for the current build."""
+    module_dirs_file = build_dir / "Kconfig" / "kconfig_module_dirs.cmake"
+    if not module_dirs_file.is_file():
+        return {}
+
+    module_dirs: dict[str, str] = {}
+    for line in module_dirs_file.read_text(encoding="utf-8").splitlines():
+        match = _KCONFIG_MODULE_DIR_RE.search(line)
+        if match:
+            module_dirs[match.group(1)] = match.group(2)
+    return module_dirs
+
+
+def _resolve_module_kconfig_env(zephyr_base: str, build_dir: Path) -> dict[str, str]:
+    """Resolve module-specific Kconfig variables required by Kconfig.modules."""
+    refs_file = build_dir / "Kconfig" / "Kconfig.modules"
+    if not refs_file.is_file():
+        return {}
+
+    required_vars = set(_KCONFIG_EXT_VAR_RE.findall(refs_file.read_text(encoding="utf-8")))
+    if not required_vars:
+        return {}
+
+    module_dir_env = _load_module_dir_env(build_dir)
+    modules_root = Path(zephyr_base) / "modules"
+    ext_kconfig_map: dict[str, str] = {}
+    if modules_root.is_dir():
+        for kconfig_file in modules_root.rglob("Kconfig"):
+            try:
+                rel_parent = kconfig_file.relative_to(modules_root).parent.as_posix()
+            except ValueError:
+                continue
+            sanitized = re.sub(r"[^A-Za-z0-9]", "_", rel_parent).upper()
+            ext_kconfig_map[f"ZEPHYR_{sanitized}_KCONFIG"] = str(kconfig_file)
+
+    resolved: dict[str, str] = {}
+    for kconfig_var in required_vars:
+        module_dir_var = kconfig_var.removesuffix("_KCONFIG") + "_MODULE_DIR"
+        module_dir = module_dir_env.get(module_dir_var)
+        if module_dir:
+            direct_kconfig = Path(module_dir) / "zephyr" / "Kconfig"
+            if direct_kconfig.is_file():
+                resolved[kconfig_var] = str(direct_kconfig)
+                continue
+
+        ext_kconfig = ext_kconfig_map.get(kconfig_var)
+        if ext_kconfig:
+            resolved[kconfig_var] = ext_kconfig
+
+    return resolved
+
 # ---------------------------------------------------------------------------
 # Kconfig loading
 # ---------------------------------------------------------------------------
@@ -39,16 +96,22 @@ def load_kconfig(zephyr_base: str, build_dir: Path, dot_config: Path):  # type: 
     if not kconfig_root.is_file():
         raise FileNotFoundError(f"Cannot find Kconfig root at {kconfig_root}")
 
+    module_kconfig_env = _resolve_module_kconfig_env(zephyr_base, build_dir)
+
     saved_env = {
         "ZEPHYR_BASE": os.environ.get("ZEPHYR_BASE"),
         "srctree": os.environ.get("srctree"),
         "KCONFIG_BINARY_DIR": os.environ.get("KCONFIG_BINARY_DIR"),
         "KCONFIG_DOC_MODE": os.environ.get("KCONFIG_DOC_MODE"),
     }
+    for key in module_kconfig_env:
+        saved_env[key] = os.environ.get(key)
+
     os.environ["ZEPHYR_BASE"] = zephyr_base
     os.environ["srctree"] = zephyr_base
     os.environ["KCONFIG_BINARY_DIR"] = str(build_dir / "Kconfig")
     os.environ["KCONFIG_DOC_MODE"] = "1"  # suppress missing-source warnings
+    os.environ.update(module_kconfig_env)
 
     try:
         kconf = kconfiglib.Kconfig(str(kconfig_root), warn=False, warn_to_stderr=False)

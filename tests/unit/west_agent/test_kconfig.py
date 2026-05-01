@@ -355,3 +355,45 @@ class TestLoadKconfig:
         assert os.environ.get("KCONFIG_BINARY_DIR") is None
         assert os.environ.get("KCONFIG_DOC_MODE") is None
 
+    def test_restores_external_module_kconfig_env(self, tmp_path, monkeypatch):
+        from zephyr_cli.west_agent.inspect.kconfig import load_kconfig
+
+        zephyr_base = tmp_path / "zephyr"
+        (zephyr_base / "scripts" / "kconfig").mkdir(parents=True)
+        (zephyr_base / "Kconfig").write_text("mainmenu \"Zephyr\"\n")
+        (zephyr_base / "modules" / "hal_espressif").mkdir(parents=True)
+        (zephyr_base / "modules" / "hal_espressif" / "Kconfig").write_text("menu \"ext\"\n")
+
+        build_dir = tmp_path / "build"
+        (build_dir / "Kconfig").mkdir(parents=True)
+        (build_dir / "Kconfig" / "Kconfig.modules").write_text(
+            'osource "$(ZEPHYR_HAL_ESPRESSIF_KCONFIG)"\n'
+        )
+        (build_dir / "Kconfig" / "kconfig_module_dirs.cmake").write_text(
+            "list(APPEND kconfig_env_dirs "
+            "ZEPHYR_HAL_ESPRESSIF_MODULE_DIR=/tmp/modules/hal/espressif)\n"
+        )
+        dot_config = build_dir / "zephyr" / ".config"
+        dot_config.parent.mkdir(parents=True)
+        dot_config.write_text("CONFIG_LOG=y\n")
+
+        calls: dict = {}
+
+        class FakeKconfig:
+            def __init__(self, filename, warn=False, warn_to_stderr=False):
+                calls["filename"] = filename
+                calls["module_kconfig"] = os.environ.get("ZEPHYR_HAL_ESPRESSIF_KCONFIG")
+
+            def load_config(self, path):
+                calls["config"] = path
+
+        monkeypatch.setitem(sys.modules, "kconfiglib", SimpleNamespace(Kconfig=FakeKconfig))
+        monkeypatch.delenv("ZEPHYR_HAL_ESPRESSIF_KCONFIG", raising=False)
+
+        load_kconfig(str(zephyr_base), build_dir, dot_config)
+
+        assert calls["filename"] == str(zephyr_base / "Kconfig")
+        assert calls["config"] == str(dot_config)
+        assert calls["module_kconfig"] == str(zephyr_base / "modules" / "hal_espressif" / "Kconfig")
+        assert os.environ.get("ZEPHYR_HAL_ESPRESSIF_KCONFIG") is None
+
