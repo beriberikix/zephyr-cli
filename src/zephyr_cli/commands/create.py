@@ -59,7 +59,7 @@ def create_cmd(
 
     try:
         app_path, files = create_core.create_project(name, topology, parent)
-        steps = create_core.next_steps(topology, name, board)
+        steps = create_core.next_steps(topology, str(app_path), board)
         result = CreateResult(
             status="created",
             name=name,

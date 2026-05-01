@@ -223,19 +223,17 @@ def create_project(
     return dest, files
 
 
-def next_steps(topology: str, name: str, board: str | None = None) -> list[str]:
+def next_steps(topology: str, app_path: str, board: str | None = None) -> list[str]:
     """Return recommended next-step commands for the given topology."""
     board_str = board or "<board>"
     t = topology.upper()
 
-    build_cmd = f"west build -b {board_str} ."
+    build_cmd = f"west build -b {board_str} {app_path}"
     if t in ("T2", "T3"):
-        build_cmd = f"west build -b {board_str} --sysbuild ."
+        build_cmd = f"west build -b {board_str} --sysbuild {app_path}"
 
     return [
-        f"cd {name}",
-        "west init -l .",
-        "west update",
+        "# Run west commands from an existing Zephyr workspace.",
         build_cmd,
-        "west flash",
+        "# After a successful build, run west flash from that same workspace.",
     ]

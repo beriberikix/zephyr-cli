@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+import sys
 
+import pytest
 from typer.testing import CliRunner
 
 from zephyr_cli.main import app
@@ -24,6 +27,14 @@ class TestVersionCommand:
         result = runner.invoke(app, ["version"])
         data = json.loads(result.output)
         assert len(data["zephyr_cli"]) > 0
+
+    def test_version_format_human_differs_from_json(self):
+        result = runner.invoke(app, ["version", "--format", "human"])
+
+        assert result.exit_code == 0
+        assert "zephyr_cli" in result.output
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(result.output)
 
 
 class TestEnvCommand:
@@ -55,6 +66,24 @@ class TestEnvCommand:
         result = runner.invoke(app, ["env"])
         data = json.loads(result.output)
         assert "west_agent_reason" in data
+
+    def test_env_format_human_differs_from_json(self):
+        result = runner.invoke(app, ["env", "--format", "human"])
+
+        assert result.exit_code == 0
+        assert "west" in result.output
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(result.output)
+
+    def test_env_prefers_runtime_context_without_venv_on_path(self, monkeypatch):
+        monkeypatch.setenv("PATH", "/usr/bin:/bin")
+
+        result = runner.invoke(app, ["env"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["west"]["available"] is True
+        assert Path(data["python"]["path"]).resolve() == Path(sys.executable).resolve()
 
 
 class TestSubcommandsShowHelp:

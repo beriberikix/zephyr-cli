@@ -78,6 +78,25 @@ class TestCreateBoardValidation:
         data = json.loads(result.output)
         assert data["status"] == "created"
 
+    def test_t1_next_steps_explain_workspace_requirement(self, tmp_path):
+        result = runner.invoke(
+            app,
+            [
+                "create",
+                "test-proj",
+                "--board",
+                "qemu_cortex_m3",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert all("west init -l ." not in step for step in data["next_steps"])
+        assert "existing Zephyr workspace" in data["next_steps"][0]
+        assert str(tmp_path / "test-proj") in data["next_steps"][1]
+
     def test_error_output_includes_board(self, tmp_path):
         result = runner.invoke(
             app,

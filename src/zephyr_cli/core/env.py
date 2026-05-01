@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from importlib import metadata, util
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from zephyr_cli.schemas.env import EnvResult, SDKInfo, ToolInfo, WestInfo
@@ -44,45 +46,74 @@ def _tool_info(name: str, version_args: list[str] | None = None) -> ToolInfo:
     return ToolInfo(path=path, version=version, available=True)
 
 
+def _runtime_python_info() -> ToolInfo:
+    version = _run_version([sys.executable, "--version"])
+    return ToolInfo(path=sys.executable, version=version, available=bool(sys.executable))
+
+
+def _module_available(name: str) -> bool:
+    try:
+        return util.find_spec(name) is not None
+    except (ImportError, AttributeError, ValueError):
+        return False
+
+
+def _west_command() -> tuple[list[str] | None, str | None, bool]:
+    path = shutil.which("west")
+    importable = _module_available("west")
+    if importable:
+        return [sys.executable, "-m", "west"], path, True
+    if path is not None:
+        return [path], path, False
+    return None, None, False
+
+
 def _west_info() -> WestInfo:
     # Strategy: try in-process import first (avoids PATH issues when
     # zephyr-cli and west are co-installed), then fall back to subprocess.
     workspace_root = None
     manifest_path = None
     version = None
-    path = shutil.which("west")
+    west_cmd, path, importable = _west_command()
 
     # 1. Try in-process detection via west library
-    try:
-        from west.util import west_topdir  # type: ignore[import-untyped]
-        workspace_root = str(west_topdir())
-    except Exception:
-        pass
+    if importable:
+        try:
+            from west.util import west_topdir  # type: ignore[import-untyped]
+
+            workspace_root = str(west_topdir())
+        except Exception:
+            pass
 
     # 2. Try in-process manifest path
-    try:
-        from west.manifest import Manifest  # type: ignore[import-untyped]
-        m = Manifest.from_topdir(topdir=workspace_root)
-        if m.abspath:
-            manifest_path = str(m.abspath)
-    except Exception:
-        pass
+    if importable and workspace_root is not None:
+        try:
+            from west.manifest import Manifest  # type: ignore[import-untyped]
+
+            m = Manifest.from_topdir(topdir=workspace_root)
+            if m.abspath:
+                manifest_path = str(m.abspath)
+        except Exception:
+            pass
 
     # 3. Try subprocess as fallback for workspace discovery
-    if workspace_root is None and path is not None:
+    if workspace_root is None and west_cmd is not None:
         try:
             result = subprocess.run(
-                [path, "topdir"], capture_output=True, text=True, timeout=5
+                [*west_cmd, "topdir"], capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
                 workspace_root = result.stdout.strip()
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             pass
 
-    if manifest_path is None and path is not None:
+    if manifest_path is None and west_cmd is not None:
         try:
             result = subprocess.run(
-                [path, "manifest", "--path"], capture_output=True, text=True, timeout=5
+                [*west_cmd, "manifest", "--path"],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 manifest_path = result.stdout.strip()
@@ -90,11 +121,16 @@ def _west_info() -> WestInfo:
             pass
 
     # Determine version
-    if path is not None:
-        version = _run_version([path, "--version"])
+    if importable:
+        try:
+            version = f"West version: v{metadata.version('west')}"
+        except metadata.PackageNotFoundError:
+            version = None
+    if version is None and west_cmd is not None:
+        version = _run_version([*west_cmd, "--version"])
 
-    # Available if we found west on PATH or resolved a workspace in-process
-    available = path is not None or workspace_root is not None
+    # Available if west is importable, on PATH, or we resolved a workspace.
+    available = importable or path is not None or workspace_root is not None
 
     return WestInfo(
         version=version,
@@ -147,12 +183,12 @@ def _west_agent_available() -> tuple[bool, str | None]:
     Returns (available, reason) where reason explains why the extension
     is not available when available is False.
     """
-    west_path = shutil.which("west")
-    if west_path is None:
+    west_cmd, _, _ = _west_command()
+    if west_cmd is None:
         return False, "west is not installed or not on PATH"
     try:
         result = subprocess.run(
-            [west_path, "help", "agent"],
+            [*west_cmd, "help", "agent"],
             capture_output=True,
             text=True,
             timeout=5,
@@ -218,7 +254,7 @@ def collect_env(skills_dir: Path | None = None) -> EnvResult:
         west=west,
         cmake=_tool_info("cmake", ["--version"]),
         ninja=_tool_info("ninja", ["--version"]),
-        python=_tool_info("python3", ["--version"]),
+        python=_runtime_python_info(),
         zephyr_env_vars=zephyr_vars,
         skills_dir=str(skills_dir) if skills_dir else None,
         installed_skills=_installed_skills(skills_dir),

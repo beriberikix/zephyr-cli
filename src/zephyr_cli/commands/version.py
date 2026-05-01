@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import platform
 import sys
 from typing import Annotated
@@ -10,6 +9,7 @@ from typing import Annotated
 import typer
 
 from zephyr_cli import __version__
+from zephyr_cli.core.output import emit
 
 app = typer.Typer(help="Print zephyr-cli version information.")
 
@@ -36,19 +36,6 @@ def version_cmd(
         "platform": platform.platform(),
     }
 
-    if fmt == "json" or not sys.stdout.isatty():
-        print(json.dumps(payload, indent=2))
-    else:
-        try:
-            from rich.console import Console
-            from rich.table import Table
-
-            console = Console()
-            table = Table(show_header=False, box=None, padding=(0, 2))
-            for k, v in payload.items():
-                table.add_row(f"[bold]{k}[/bold]", v)
-            console.print(table)
-        except ImportError:
-            print(json.dumps(payload, indent=2))
+    emit(payload, fmt=fmt)
 
     raise typer.Exit(0)
