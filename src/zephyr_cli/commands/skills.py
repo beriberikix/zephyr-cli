@@ -178,6 +178,12 @@ def skills_suggest(
         str | None,
         typer.Option("--dts", "--dts-compatible", help="Comma-separated DTS compatible strings."),
     ] = None,
+    limit: Annotated[
+        int, typer.Option("--limit", help="Maximum number of suggestions to return.")
+    ] = 5,
+    min_score: Annotated[
+        float, typer.Option("--min-score", help="Drop suggestions scoring below this value.")
+    ] = reg.MIN_SCORE,
     fmt: Annotated[str, typer.Option("--format", "-f")] = "json",
 ) -> None:
     """Suggest skills relevant to your task."""
@@ -192,7 +198,12 @@ def skills_suggest(
     dts_compatibles = [s.strip() for s in dts.split(",")] if dts else None
 
     suggestions = reg.suggest_skills(
-        index, query, kconfig_symbols=kconfig_symbols, dts_compatibles=dts_compatibles
+        index,
+        query,
+        kconfig_symbols=kconfig_symbols,
+        dts_compatibles=dts_compatibles,
+        max_results=limit,
+        min_score=min_score,
     )
     emit(
         SkillSuggestResult(status="ok", query=query, suggestions=suggestions),

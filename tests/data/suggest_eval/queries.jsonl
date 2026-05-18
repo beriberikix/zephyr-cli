@@ -1,0 +1,276 @@
+{"query": "how do i create a board.yml for my custom nrf52840 carrier board", "expected": "board-bringup"}
+{"query": "porting zephyr to a brand new pcb, where do the board files go", "expected": "board-bringup"}
+{"query": "hwmv2 board directory layout boards/vendor/board structure", "expected": "board-bringup"}
+{"query": "need to add a rev B revision to my existing custom board", "expected": "board-bringup"}
+{"query": "what goes in Kconfig.board vs Kconfig.defconfig for a new board", "expected": "board-bringup"}
+{"query": "my custom board isn't showing up in west boards list", "expected": "board-bringup"}
+{"query": "how to define soc variants for my board in board.yml", "expected": "board-bringup"}
+{"query": "minimal _defconfig for bringing up a custom stm32 board", "expected": "board-bringup"}
+{"query": "set up boards/acme/widget with hardware model v2", "expected": "board-bringup"}
+{"query": "where do i put _common.dtsi shared across board revisions", "expected": "board-bringup"}
+{"query": "creating a bsp for a new board built around the rp2040", "expected": "board-bringup"}
+{"query": "board.yml lint says board name and soc are inconsistent", "expected": "board-bringup"}
+{"query": "west update fails to resolve a project in the manifest", "expected": "build-system"}
+{"query": "how do i add a name-allowlist to my west.yml", "expected": "build-system"}
+{"query": "set up a sysbuild build with mcuboot plus my app", "expected": "build-system"}
+{"query": "west init -m then west update for a new workspace", "expected": "build-system"}
+{"query": "where is the .config after a build and how do i check a kconfig symbol", "expected": "build-system"}
+{"query": "menuconfig how to search for a symbol with slash", "expected": "build-system"}
+{"query": "CMake Error at CMakeLists.txt could not find zephyr package", "expected": "build-system"}
+{"query": "how to use zephyr_library and target_sources in my CMakeLists.txt", "expected": "build-system"}
+{"query": "west manifest --resolve to see the full pinned project list", "expected": "build-system"}
+{"query": "build fails with kconfig symbol not defined error", "expected": "build-system"}
+{"query": "configure sysbuild.conf for a multi-image project", "expected": "build-system"}
+{"query": "what's the difference between prj.conf and a board defconfig", "expected": "build-system"}
+{"query": "write an app.overlay to enable i2c1 and disable uart0", "expected": "devicetree"}
+{"query": "how do i set zephyr,console with a chosen node in an overlay", "expected": "devicetree"}
+{"query": "need a yaml binding for my custom sensor compatible string", "expected": "devicetree"}
+{"query": "use /delete-node/ to remove a peripheral for a product variant", "expected": "devicetree"}
+{"query": "pinctrl setup for spi pins in the devicetree", "expected": "devicetree"}
+{"query": "what's a phandle and how do i reference a node by &label", "expected": "devicetree"}
+{"query": "checking zephyr.dts to see if my overlay node status got applied", "expected": "devicetree"}
+{"query": "/delete-property/ to drop a property from an inherited node", "expected": "devicetree"}
+{"query": "how to add a new device node with reg and status okay in a .dts", "expected": "devicetree"}
+{"query": "my .overlay isn't taking effect, peripheral still disabled", "expected": "devicetree"}
+{"query": "writing a binding yaml so the driver schema matches my dts node", "expected": "devicetree"}
+{"query": "variant-specific overlay to remap pins for a hardware rev", "expected": "devicetree"}
+{"query": "how do i package my driver as an out-of-tree zephyr module", "expected": "zephyr-module"}
+{"query": "what fields does module.yml need build.cmake and build.kconfig", "expected": "zephyr-module"}
+{"query": "wrap an external C library as a reusable zephyr module", "expected": "zephyr-module"}
+{"query": "west build -t list_modules doesn't show my module", "expected": "zephyr-module"}
+{"query": "where do i put zephyr/module.yml in my external repo", "expected": "zephyr-module"}
+{"query": "module Kconfig options not appearing after adding to manifest", "expected": "zephyr-module"}
+{"query": "create a vendor sdk module so it's auto-discovered by west", "expected": "zephyr-module"}
+{"query": "glue code pattern for integrating a third party lib as a module", "expected": "zephyr-module"}
+{"query": "structure for zephyr/Kconfig and zephyr/CMakeLists.txt inside a module", "expected": "zephyr-module"}
+{"query": "make my reusable component installable across multiple projects", "expected": "zephyr-module"}
+{"query": "module.yml template for an out-of-tree driver package", "expected": "zephyr-module"}
+{"query": "my external software component isn't being compiled into the app", "expected": "zephyr-module"}
+{"query": "when should i use CONTAINER_OF macro in zephyr", "expected": "zephyr-foundations"}
+{"query": "BIT() and GENMASK() instead of raw hex bitmask literals", "expected": "zephyr-foundations"}
+{"query": "should my driver functions return negative errno codes", "expected": "zephyr-foundations"}
+{"query": "protecting shared state between threads with a k_mutex", "expected": "zephyr-foundations"}
+{"query": "difference between k_spinlock and k_mutex for isr safety", "expected": "zephyr-foundations"}
+{"query": "using atomic_t for a flag accessed from an interrupt", "expected": "zephyr-foundations"}
+{"query": "defensive null pointer and device_is_ready checks before using a device", "expected": "zephyr-foundations"}
+{"query": "BUILD_ASSERT to catch a bad config at compile time", "expected": "zephyr-foundations"}
+{"query": "idiomatic embedded c patterns for writing a zephyr driver skeleton", "expected": "zephyr-foundations"}
+{"query": "ARRAY_SIZE macro to iterate over a static table safely", "expected": "zephyr-foundations"}
+{"query": "k_sem vs k_mutex when do i use a counting semaphore", "expected": "zephyr-foundations"}
+{"query": "checking return codes properly and handling -ENODEV", "expected": "zephyr-foundations"}
+{"query": "how do i register a logging module with LOG_MODULE_REGISTER", "expected": "kernel-basics"}
+{"query": "K_THREAD_DEFINE create a worker thread at priority 5", "expected": "kernel-basics"}
+{"query": "add a custom shell command with SHELL_CMD_REGISTER", "expected": "kernel-basics"}
+{"query": "my LOG_INF output isn't printing, log level filtering issue", "expected": "kernel-basics"}
+{"query": "how does the zephyr scheduler pick which thread runs", "expected": "kernel-basics"}
+{"query": "thread priority preemptible vs cooperative explained", "expected": "kernel-basics"}
+{"query": "SHELL_STATIC_SUBCMD_SET_CREATE for nested shell subcommands", "expected": "kernel-basics"}
+{"query": "k_sleep vs k_yield in a thread loop", "expected": "kernel-basics"}
+{"query": "dynamic log filtering change a module's log level at runtime", "expected": "kernel-basics"}
+{"query": "build an interactive cli to inspect hardware over uart", "expected": "kernel-basics"}
+{"query": "set up LOG_ERR and per-module log levels for diagnostics", "expected": "kernel-basics"}
+{"query": "spawn a background thread that does periodic sensor sampling", "expected": "kernel-basics"}
+{"query": "build and run my zephyr app on linux without hardware", "expected": "native-sim"}
+{"query": "west build -b native_sim then run zephyr.exe on my host", "expected": "native-sim"}
+{"query": "debug a zephyr app with gdb on the host using native_sim", "expected": "native-sim"}
+{"query": "run valgrind against my native simulation binary to find leaks", "expected": "native-sim"}
+{"query": "set up native_sim in ci so tests run without a board", "expected": "native-sim"}
+{"query": "twister -p native_sim for host based test runs", "expected": "native-sim"}
+{"query": "native_sim vs qemu which should i use for app logic dev", "expected": "native-sim"}
+{"query": "how to map host resources into a native_sim build", "expected": "native-sim"}
+{"query": "west debug on native_sim to step through my code", "expected": "native-sim"}
+{"query": "my zephyr.exe crashes on the host with a segfault", "expected": "native-sim"}
+{"query": "profile a native simulation run with gprof", "expected": "native-sim"}
+{"query": "develop application logic on my laptop before the pcb arrives", "expected": "native-sim"}
+{"query": "how do i center a div with flexbox in css", "expected": null}
+{"query": "best way to deploy a node.js app to aws lambda", "expected": null}
+{"query": "freertos vTaskDelay not working as expected on esp-idf", "expected": null}
+{"query": "git rebase interactive squash last 3 commits", "expected": null}
+{"query": "how to set up a postgres database connection pool in python", "expected": null}
+{"query": "my macbook wifi keeps dropping how do i fix it", "expected": null}
+{"query": "write a regex to validate email addresses in javascript", "expected": null}
+{"query": "docker compose can't bind to port 8080 already in use", "expected": null}
+{"query": "how do i parse json with jq on the command line", "expected": null}
+{"query": "convert a pandas dataframe to a numpy array", "expected": null}
+{"query": "how do i define a custom gatt service with BT_GATT_SERVICE_DEFINE on nrf52840", "expected": "connectivity-ble"}
+{"query": "ble peripheral keeps disconnecting after a few seconds, connection params not being accepted", "expected": "connectivity-ble"}
+{"query": "my coin cell battery drains in 2 days, the radio seems to wake up on every sensor sample", "expected": "connectivity-ble"}
+{"query": "bt_le_adv_start returns -12 ENOMEM", "expected": "connectivity-ble"}
+{"query": "how to bump peripheral latency so the device can sleep longer between connection events", "expected": "connectivity-ble"}
+{"query": "want to batch notifications and only send them when the link is idle instead of every reading", "expected": "connectivity-ble"}
+{"query": "set up advertising with a device name so a phone scanner can find it", "expected": "connectivity-ble"}
+{"query": "implement bonding so the central remembers the device after reboot", "expected": "connectivity-ble"}
+{"query": "convert 100ms advertising interval into the units the BT api wants", "expected": "connectivity-ble"}
+{"query": "CONFIG_BT_PERIPHERAL vs CONFIG_BT_CENTRAL which one for a sensor tag", "expected": "connectivity-ble"}
+{"query": "characteristic notify callback never fires after subscribe from nRF Connect app", "expected": "connectivity-ble"}
+{"query": "switch the connection to 2M phy to save power during transfers", "expected": "connectivity-ble"}
+{"query": "trim my network stack to save ram, disable ipv6 and tcp since i only need coap over udp", "expected": "connectivity-ip"}
+{"query": "mqtt client wont publish to the broker, connect succeeds but pubrec never comes back", "expected": "connectivity-ip"}
+{"query": "how do i pick between lwm2m coap and mqtt for a battery powered cloud sensor", "expected": "connectivity-ip"}
+{"query": "CONFIG_NET_BUF_RX_COUNT tuning, getting net buf allocation failures under load", "expected": "connectivity-ip"}
+{"query": "dns resolver blocks my main thread, need the async lookup api", "expected": "connectivity-ip"}
+{"query": "zsock_connect fails with -111 ECONNREFUSED to my ethernet server", "expected": "connectivity-ip"}
+{"query": "west.yml is cloning hundreds of mb of vendor modules, how do i use a name allowlist", "expected": "build-system"}
+{"query": "wifi sta wont get a dhcp lease on esp32", "expected": "connectivity-ip"}
+{"query": "minimal prj.conf for coap over udp ipv4 only", "expected": "connectivity-ip"}
+{"query": "integrate an external cloud sdk as a zephyr module with zephyr/module.yml", "expected": "zephyr-module"}
+{"query": "lwm2m registration to the leshan server times out", "expected": "connectivity-ip"}
+{"query": "how much ram do i reclaim if i disable tcp and only run udp", "expected": "connectivity-ip"}
+{"query": "enable usb cdc acm so my board shows up as a serial port on the host", "expected": "connectivity-usb-can"}
+{"query": "usb_enable returns 0 but windows doesnt enumerate the device", "expected": "connectivity-usb-can"}
+{"query": "building a usb to can adapter, want to use the gs_usb protocol for the bridge", "expected": "connectivity-usb-can"}
+{"query": "mcp2515 can controller over spi, can_send keeps returning -EIO", "expected": "connectivity-usb-can"}
+{"query": "losing can frames during burst traffic, need buffering between the isr and usb thread", "expected": "connectivity-usb-can"}
+{"query": "how to set up hardware can filters so the controller drops irrelevant ids", "expected": "connectivity-usb-can"}
+{"query": "CONFIG_USB_DEVICE_STACK vs the new udc stack, which usb classes are supported", "expected": "connectivity-usb-can"}
+{"query": "add a usb HID class alongside cdc acm in the same composite device", "expected": "connectivity-usb-can"}
+{"query": "can bus stuck in bus-off state, how do i recover the controller", "expected": "connectivity-usb-can"}
+{"query": "validate my can filter id and mask table from a csv before flashing", "expected": "connectivity-usb-can"}
+{"query": "use k_msgq to safely move can frames from the rx interrupt to the processing thread", "expected": "connectivity-usb-can"}
+{"query": "mass storage MSC usb class so the device exposes a fat filesystem to the pc", "expected": "connectivity-usb-can"}
+{"query": "join an openthread network using the ot dataset shell commands", "expected": "iot-protocols"}
+{"query": "CONFIG_NET_L2_OPENTHREAD enabled but the device never gets a mesh role", "expected": "iot-protocols"}
+{"query": "build a matter light bulb that commissions over ble onto thread", "expected": "iot-protocols"}
+{"query": "lorawan otaa join keeps failing, no join accept from the gateway", "expected": "iot-protocols"}
+{"query": "golioth lightdb state sync not pushing telemetry to the cloud", "expected": "iot-protocols"}
+{"query": "sleepy end device config for a thread sensor node to get multi year battery life", "expected": "iot-protocols"}
+{"query": "how do i set up a thread border router to bridge mesh traffic to the cloud", "expected": "iot-protocols"}
+{"query": "matter zap tool generated clusters, where do i add the on/off cluster handler", "expected": "iot-protocols"}
+{"query": "adaptive data rate ADR for lorawan, when should i enable it", "expected": "iot-protocols"}
+{"query": "otInstance pointer, how to call openthread api directly from my app", "expected": "iot-protocols"}
+{"query": "golioth system client wont connect, ota updates not arriving", "expected": "iot-protocols"}
+{"query": "validate a thread provisioning dataset env file has all required key value fields", "expected": "iot-protocols"}
+{"query": "read a bme280 temperature with sensor_sample_fetch and sensor_channel_get", "expected": "hardware-io"}
+{"query": "GPIO_DT_SPEC_GET for a button, gpio_pin_get always returns 0", "expected": "hardware-io"}
+{"query": "configure pinctrl to move the i2c pins on stm32f4", "expected": "hardware-io"}
+{"query": "adc reading on nrf52 is noisy and offset, how do i configure the channel and gain", "expected": "hardware-io"}
+{"query": "pwm dimming an led, the pwm_set_dt call returns -ENOTSUP", "expected": "hardware-io"}
+{"query": "lsm6dsl accelerometer over spi, sample fetch returns -EIO", "expected": "hardware-io"}
+{"query": "DEVICE_DT_GET for my sensor returns a device that is not ready at boot", "expected": "hardware-io"}
+{"query": "duplicate alias in my overlay file causing the wrong gpio to be used", "expected": "hardware-io"}
+{"query": "set up a uart peripheral with async api and dma rx", "expected": "hardware-io"}
+{"query": "how to add pin states in a shared dtsi for two board revisions", "expected": "hardware-io"}
+{"query": "struct sensor_value scaling, my temperature comes out as 0 and a huge fractional part", "expected": "hardware-io"}
+{"query": "polling a sensor in a workqueue instead of the main loop, need a template", "expected": "hardware-io"}
+{"query": "lvgl label widget not updating on my ili9341 tft display", "expected": "specialized"}
+{"query": "i2s audio playback has pops when the stream starts and stops", "expected": "specialized"}
+{"query": "set up a hardware watchdog and feed it from the main loop with wdt_feed", "expected": "specialized"}
+{"query": "windowed watchdog keeps resetting because i feed it too early", "expected": "specialized"}
+{"query": "double buffering for lvgl to stop screen tearing", "expected": "specialized"}
+{"query": "dma ping pong buffers for continuous i2s audio capture", "expected": "specialized"}
+{"query": "want to track all my thread health bits and only feed the dog if everything is alive", "expected": "specialized"}
+{"query": "test that my system recovers from a forced crash, fault injection with k_oops", "expected": "specialized"}
+{"query": "how to read the reset reason after a watchdog reset", "expected": "specialized"}
+{"query": "run my lvgl gui in native_sim before i have the real display hardware", "expected": "specialized"}
+{"query": "CONFIG_I2S codec volume ramping to avoid speaker damage", "expected": "specialized"}
+{"query": "verify my watchdog feed interval fits inside the window constraints", "expected": "specialized"}
+{"query": "modbus rtu server over rs485, how do i handle the DE/RE direction pin", "expected": "industrial"}
+{"query": "modbus_init_server callbacks never get called for holding register reads", "expected": "industrial"}
+{"query": "modbus tcp server should respond on port 502 but client gets connection reset", "expected": "industrial"}
+{"query": "canopen object dictionary setup with canopennode stack", "expected": "industrial"}
+{"query": "my plc cant read the holding registers from my zephyr device over modbus", "expected": "industrial"}
+{"query": "configure uart-rs485 devicetree property so the transceiver direction is automatic", "expected": "industrial"}
+{"query": "canopen node stuck in pre-operational, never goes to operational NMT state", "expected": "industrial"}
+{"query": "pdo and sdo mapping for a canopen motor controller", "expected": "industrial"}
+{"query": "register map for a factory automation sensor, modbus address layout", "expected": "industrial"}
+{"query": "lint my modbus register csv for duplicate or overlapping addresses", "expected": "industrial"}
+{"query": "CONFIG_MODBUS_SERIAL baud and parity settings for a meter reader", "expected": "industrial"}
+{"query": "bridge modbus data from a serial sensor onto ethernet using modbus tcp", "expected": "industrial"}
+{"query": "how do i center a div vertically with css flexbox", "expected": null}
+{"query": "python pandas groupby then sum a column", "expected": null}
+{"query": "git rebase interactive squash last 3 commits", "expected": null}
+{"query": "react useEffect runs twice in strict mode", "expected": null}
+{"query": "aws lambda cold start latency how to reduce it", "expected": null}
+{"query": "postgres query is slow, how do i add an index", "expected": null}
+{"query": "convert a docx file to pdf on the command line", "expected": null}
+{"query": "what is the time complexity of quicksort worst case", "expected": null}
+{"query": "kubernetes pod stuck in CrashLoopBackOff", "expected": null}
+{"query": "best way to learn rust for backend web development", "expected": null}
+{"query": "how do i decouple my sensor module from the cloud module without them calling each other directly", "expected": "kernel-services"}
+{"query": "ZBUS_CHAN_DEFINE subscriber not getting notified when i publish", "expected": "kernel-services"}
+{"query": "zbus listener vs subscriber vs message subscriber which one do i pick", "expected": "kernel-services"}
+{"query": "need a clean way to model uninitialized -> ready -> active -> error states in my app", "expected": "kernel-services"}
+{"query": "smf_set_state from inside a run handler causing weird transitions", "expected": "kernel-services"}
+{"query": "how to do hierarchical state machines with SMF_CREATE_STATE", "expected": "kernel-services"}
+{"query": "settings_save_one then settings_load but my config doesnt come back after reboot", "expected": "kernel-services"}
+{"query": "want to defer a slow i2c read off the isr, use a workqueue?", "expected": "kernel-services"}
+{"query": "k_work_delayable keeps resubmitting before previous one finished", "expected": "kernel-services"}
+{"query": "should i create a custom work queue or use the system one for sensor ingestion", "expected": "kernel-services"}
+{"query": "register a settings handler with SETTINGS_STATIC_HANDLER_DEFINE for my wifi creds", "expected": "kernel-services"}
+{"query": "k_msgq vs zbus for passing structs between two threads", "expected": "kernel-services"}
+{"query": "enable CONFIG_SMP on a dual core soc and pin a thread to core 1", "expected": "multicore"}
+{"query": "rpmsg endpoint between cortex-a and cortex-m never receives messages", "expected": "multicore"}
+{"query": "how to bridge zephyr realtime logic with a linux app using openamp", "expected": "multicore"}
+{"query": "nrf5340 net core image not building with sysbuild", "expected": "multicore"}
+{"query": "ipc_service shared memory backend setup between app and network core", "expected": "multicore"}
+{"query": "what is a resource table in openamp and do i need one", "expected": "multicore"}
+{"query": "load an elf module at runtime without reflashing the whole firmware", "expected": "multicore"}
+{"query": "llext symbol export, my dynamically loaded module cant find a kernel function", "expected": "multicore"}
+{"query": "CONFIG_NRF53_BOOT_NETWORK_CORE_ON_STARTUP do i need this", "expected": "multicore"}
+{"query": "k_spinlock for protecting a struct shared across two cpus", "expected": "multicore"}
+{"query": "west flash only programs one domain on my multi image build", "expected": "multicore"}
+{"query": "mailbox / IPM driver to send a 4 byte signal to the other core", "expected": "multicore"}
+{"query": "battery only lasts 2 days, need to cut idle current way down", "expected": "power-performance"}
+{"query": "pm_device_action_run PM_DEVICE_ACTION_SUSPEND on spi0 after transfer done", "expected": "power-performance"}
+{"query": "device wont enter the lowest power state, something keeps it awake", "expected": "power-performance"}
+{"query": "how do residency hooks decide which CONFIG_PM power state to enter", "expected": "power-performance"}
+{"query": "configure a gpio as a wakeup source from suspend", "expected": "power-performance"}
+{"query": "system poweroff vs deep sleep whats the difference", "expected": "power-performance"}
+{"query": "put a control loop in DTCM with __ramfunc to avoid flash wait states", "expected": "power-performance"}
+{"query": "estimate average current draw from my duty cycle to predict battery life", "expected": "power-performance"}
+{"query": "CONFIG_PM_DEVICE_RUNTIME how does runtime pm differ from system pm", "expected": "power-performance"}
+{"query": "reduce wakeup latency coming out of idle, taking too long", "expected": "power-performance"}
+{"query": "block the soc from going to sleep during a critical timing section", "expected": "power-performance"}
+{"query": "code relocation script to move hot functions into fast ram", "expected": "power-performance"}
+{"query": "set up mcuboot as the bootloader for my app", "expected": "security-updates"}
+{"query": "imgtool sign my firmware with an ecdsa-p256 key", "expected": "security-updates"}
+{"query": "device bricks after a bad update, need fail safe rollback", "expected": "security-updates"}
+{"query": "boot_write_img_confirmed where do i call it in my app", "expected": "security-updates"}
+{"query": "mcumgr image upload then test then confirm flow over serial", "expected": "security-updates"}
+{"query": "how to do over the air firmware updates to my fleet", "expected": "security-updates"}
+{"query": "stop firmware downgrades, enforce version monotonicity", "expected": "security-updates"}
+{"query": "mcuboot swap not happening, image stays in slot1 after reboot", "expected": "security-updates"}
+{"query": "still using the default mcuboot signing key, how do i provision production keys", "expected": "security-updates"}
+{"query": "CONFIG_BOOTLOADER_MCUBOOT and slot0/slot1 partition layout in devicetree", "expected": "security-updates"}
+{"query": "enable mbedtls for crypto and secure storage on my board", "expected": "security-updates"}
+{"query": "verify a signed image at boot and reject tampered firmware", "expected": "security-updates"}
+{"query": "nvs_mount fails with -2 on boot", "expected": "storage"}
+{"query": "store a few config integers in flash that survive a reset", "expected": "storage"}
+{"query": "nvs_write returns -ENOSPC even though partition looks big enough", "expected": "storage"}
+{"query": "how does NVS handle flash wear leveling", "expected": "storage"}
+{"query": "define a fixed-partitions storage partition in my board overlay", "expected": "storage"}
+{"query": "littlefs vs nvs for storing a log file on external spi nor", "expected": "storage"}
+{"query": "mount a FAT filesystem on an sd card", "expected": "storage"}
+{"query": "flash_get_page_info_by_offs to find sector size at runtime", "expected": "storage"}
+{"query": "two modules using the same nvs id and overwriting each others data", "expected": "storage"}
+{"query": "jedec spi-nor chip not showing up as a flash device", "expected": "storage"}
+{"query": "flash map partition offset overlaps something, build warns", "expected": "storage"}
+{"query": "read back a byte array blob from nvs by id", "expected": "storage"}
+{"query": "thread keeps overflowing its stack, how do i find the right size", "expected": "testing-debugging"}
+{"query": "write a ztest unit test with ZTEST_SUITE and zassert_equal", "expected": "testing-debugging"}
+{"query": "twister cant find my testcase.yaml", "expected": "testing-debugging"}
+{"query": "run my test suite on real hardware with twister hardware map", "expected": "testing-debugging"}
+{"query": "<err> os: ***** MPU FAULT ***** stacking error how do i debug this", "expected": "testing-debugging"}
+{"query": "enable CONFIG_THREAD_ANALYZER to see per thread stack usage", "expected": "testing-debugging"}
+{"query": "hook up segger systemview to trace my zephyr app", "expected": "testing-debugging"}
+{"query": "CONFIG_STACK_SENTINEL caught corruption, what now", "expected": "testing-debugging"}
+{"query": "get code coverage numbers from my ztest runs", "expected": "testing-debugging"}
+{"query": "pytest harness for a twister integration test talking to the dut over uart", "expected": "testing-debugging"}
+{"query": "twister.json into our ci pipeline for regression gating", "expected": "testing-debugging"}
+{"query": "profile where my firmware spends time, suspect a latency hotspot", "expected": "testing-debugging"}
+{"query": "how do i center a div vertically in css", "expected": null}
+{"query": "git rebase interactive squash last 3 commits", "expected": null}
+{"query": "aws lambda cold start is too slow how to fix", "expected": null}
+{"query": "best way to parse json in python", "expected": null}
+{"query": "docker compose container cant reach postgres on localhost", "expected": null}
+{"query": "react useeffect running twice in strict mode", "expected": null}
+{"query": "kubernetes pod stuck in CrashLoopBackOff", "expected": null}
+{"query": "how to set up a github actions matrix build for node versions", "expected": null}
+{"query": "regex to validate an email address", "expected": null}
+{"query": "my macbook wont connect to wifi after the update", "expected": null}
+{"query": "sql query to find duplicate rows in a table", "expected": null}
+{"query": "how do i write a good cover letter for a software job", "expected": null}
+{"query": "rust borrow checker complaining about a mutable reference", "expected": null}
+{"query": "terraform plan shows drift on a resource i didnt change", "expected": null}
+{"query": "nginx reverse proxy 502 bad gateway", "expected": null}
+{"query": "convert a pandas dataframe column to datetime", "expected": null}

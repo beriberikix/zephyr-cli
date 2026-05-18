@@ -88,7 +88,11 @@ zephyr-cli skills list --installed       # Only show installed skills
 zephyr-cli skills install build-system   # Install a skill into .zephyr/skills/
 zephyr-cli skills install build-system --force
 zephyr-cli skills show build-system      # Show skill details
-zephyr-cli skills suggest "add BLE support" --kconfig CONFIG_BT
+
+# suggest: deterministic, scored skill matching over keywords, Kconfig and devicetree
+zephyr-cli skills suggest "add BLE support"
+zephyr-cli skills suggest "spi sensor wiring" --kconfig CONFIG_SPI --dts bosch,bmp280
+zephyr-cli skills suggest "twister test setup" --limit 3
 
 # --- Documentation cache ---
 zephyr-cli docs list                     # List cached + available docs releases
