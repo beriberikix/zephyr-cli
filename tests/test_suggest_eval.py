@@ -107,7 +107,9 @@ def _print_report(m: dict) -> None:
     print(f"{'skill':26}{'n':>4}{'R@1':>8}{'R@3':>8}")
     for name in sorted(m["per_skill"]):
         s = m["per_skill"][name]
-        print(f"{name:26}{s['n']:>4}{s['hit1'] / s['n'] * 100:>7.0f}%{s['hit3'] / s['n'] * 100:>7.0f}%")
+        print(
+            f"{name:26}{s['n']:>4}{s['hit1'] / s['n'] * 100:>7.0f}%{s['hit3'] / s['n'] * 100:>7.0f}%"
+        )
     if m["misses"]:
         print(f"-- {len(m['misses'])} miss/FP --")
         for kind, query, got in m["misses"]:

@@ -174,18 +174,18 @@ def list_installed(workspace_root: Path) -> list[InstalledSkill]:
 # ---------------------------------------------------------------------------
 
 # Scoring weights. Pure-lexical and deterministic; locked by tests/test_suggest_eval.py.
-_W_PHRASE = 5.0       # a multi-word keyword/alias appears verbatim in the query
-_W_ALIAS = 4.0        # query token == an alias token (catches short acronyms: ble, bt)
-_W_KEYWORD = 3.0      # query token == a keyword token
-_W_NAME = 2.0         # query token == a segment of the skill name
-_W_SUMMARY = 1.0      # query token (len >= 3) appears in the summary
+_W_PHRASE = 5.0  # a multi-word keyword/alias appears verbatim in the query
+_W_ALIAS = 4.0  # query token == an alias token (catches short acronyms: ble, bt)
+_W_KEYWORD = 3.0  # query token == a keyword token
+_W_NAME = 2.0  # query token == a segment of the skill name
+_W_SUMMARY = 1.0  # query token (len >= 3) appears in the summary
 _W_DESCRIPTION = 0.5  # query token (len >= 3) appears in the description
-_W_KCONFIG = 8.0      # a --kconfig symbol matches a kconfig pattern
-_W_DTS_EXACT = 8.0    # a --dts compatible matches exactly
+_W_KCONFIG = 8.0  # a --kconfig symbol matches a kconfig pattern
+_W_DTS_EXACT = 8.0  # a --dts compatible matches exactly
 _W_DTS_PARTIAL = 2.0  # a --dts vendor/device part overlaps
 
-MIN_SCORE = 3.0       # absolute score floor for a result to be returned
-TOP_RATIO = 0.25      # also drop results below this fraction of the top score
+MIN_SCORE = 3.0  # absolute score floor for a result to be returned
+TOP_RATIO = 0.25  # also drop results below this fraction of the top score
 
 
 def _tokenize(text: str) -> list[str]:
@@ -204,14 +204,82 @@ def _kconfig_to_regex(pattern: str) -> re.Pattern[str]:
 
 
 # Function words and ultra-generic terms that must never score on their own.
-_STOPWORDS = frozenset({
-    "a", "an", "and", "or", "of", "in", "on", "to", "for", "is", "are", "be", "as", "at",
-    "by", "from", "with", "into", "over", "after", "before", "the", "this", "that", "these",
-    "those", "it", "its", "my", "your", "our", "we", "you", "they", "i", "me", "how", "do",
-    "does", "when", "where", "what", "why", "which", "if", "not", "no", "but", "so", "about",
-    "up", "out", "get", "set", "use", "using", "used", "need", "want", "trying", "try",
-    "help", "please", "make", "new", "add", "fix", "issue", "problem", "work", "working", "code",
-})
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "or",
+        "of",
+        "in",
+        "on",
+        "to",
+        "for",
+        "is",
+        "are",
+        "be",
+        "as",
+        "at",
+        "by",
+        "from",
+        "with",
+        "into",
+        "over",
+        "after",
+        "before",
+        "the",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "my",
+        "your",
+        "our",
+        "we",
+        "you",
+        "they",
+        "i",
+        "me",
+        "how",
+        "do",
+        "does",
+        "when",
+        "where",
+        "what",
+        "why",
+        "which",
+        "if",
+        "not",
+        "no",
+        "but",
+        "so",
+        "about",
+        "up",
+        "out",
+        "get",
+        "set",
+        "use",
+        "using",
+        "used",
+        "need",
+        "want",
+        "trying",
+        "try",
+        "help",
+        "please",
+        "make",
+        "new",
+        "add",
+        "fix",
+        "issue",
+        "problem",
+        "work",
+        "working",
+        "code",
+    }
+)
 
 
 def suggest_skills(
