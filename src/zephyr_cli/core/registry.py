@@ -14,7 +14,7 @@ from pathlib import Path
 import httpx
 
 from zephyr_cli.core.config import ZephyrCliConfig
-from zephyr_cli.schemas.skills import InstalledSkill, SkillEntry, SkillsIndex
+from zephyr_cli.schemas.skills import InstalledSkill, ScoredSkill, SkillEntry, SkillsIndex
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -173,6 +173,114 @@ def list_installed(workspace_root: Path) -> list[InstalledSkill]:
 # Suggest
 # ---------------------------------------------------------------------------
 
+# Scoring weights. Pure-lexical and deterministic; locked by tests/test_suggest_eval.py.
+_W_PHRASE = 5.0  # a multi-word keyword/alias appears verbatim in the query
+_W_ALIAS = 4.0  # query token == an alias token (catches short acronyms: ble, bt)
+_W_KEYWORD = 3.0  # query token == a keyword token
+_W_NAME = 2.0  # query token == a segment of the skill name
+_W_SUMMARY = 1.0  # query token (len >= 3) appears in the summary
+_W_DESCRIPTION = 0.5  # query token (len >= 3) appears in the description
+_W_KCONFIG = 8.0  # a --kconfig symbol matches a kconfig pattern
+_W_DTS_EXACT = 8.0  # a --dts compatible matches exactly
+_W_DTS_PARTIAL = 2.0  # a --dts vendor/device part overlaps
+
+MIN_SCORE = 3.0  # absolute score floor for a result to be returned
+TOP_RATIO = 0.25  # also drop results below this fraction of the top score
+
+
+def _tokenize(text: str) -> list[str]:
+    """Lower-case and split into tokens, keeping short tokens (ble, i2c) and '+'."""
+    return [t for t in re.split(r"[^a-z0-9+]+", text.lower()) if t]
+
+
+def _kconfig_to_regex(pattern: str) -> re.Pattern[str]:
+    """Compile a Kconfig pattern to an anchored regex.
+
+    Only ``*`` is a wildcard; every other character (``.`` ``_`` ``+`` ...) is
+    matched literally — fixes the old ``CONFIG_BT.*``-style unescaped-dot bug.
+    """
+    escaped = re.escape(pattern).replace(r"\*", ".*")
+    return re.compile(f"^{escaped}$")
+
+
+# Function words and ultra-generic terms that must never score on their own.
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "or",
+        "of",
+        "in",
+        "on",
+        "to",
+        "for",
+        "is",
+        "are",
+        "be",
+        "as",
+        "at",
+        "by",
+        "from",
+        "with",
+        "into",
+        "over",
+        "after",
+        "before",
+        "the",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "my",
+        "your",
+        "our",
+        "we",
+        "you",
+        "they",
+        "i",
+        "me",
+        "how",
+        "do",
+        "does",
+        "when",
+        "where",
+        "what",
+        "why",
+        "which",
+        "if",
+        "not",
+        "no",
+        "but",
+        "so",
+        "about",
+        "up",
+        "out",
+        "get",
+        "set",
+        "use",
+        "using",
+        "used",
+        "need",
+        "want",
+        "trying",
+        "try",
+        "help",
+        "please",
+        "make",
+        "new",
+        "add",
+        "fix",
+        "issue",
+        "problem",
+        "work",
+        "working",
+        "code",
+    }
+)
+
 
 def suggest_skills(
     index: SkillsIndex,
@@ -180,46 +288,91 @@ def suggest_skills(
     kconfig_symbols: list[str] | None = None,
     dts_compatibles: list[str] | None = None,
     max_results: int = 5,
-) -> list[SkillEntry]:
-    """Rank and return skills relevant to *query*, kconfig symbols, or DTS compatibles."""
-    query_lower = query.lower() if query else ""
-    query_tokens = {t for t in re.split(r"\W+", query_lower) if len(t) > 2}
+    min_score: float = MIN_SCORE,
+) -> list[ScoredSkill]:
+    """Rank skills by a deterministic lexical score over query, kconfig and DTS signals."""
+    all_tokens = _tokenize(query)
+    query_norm = " ".join(all_tokens)
+    query_tokens = [t for t in all_tokens if t not in _STOPWORDS]
 
-    scored: list[tuple[int, SkillEntry]] = []
+    scored: list[ScoredSkill] = []
 
     for skill in index.skills:
-        score = 0
+        raw = 0.0
+        matched: list[str] = []
+        consumed: set[str] = set()  # tokens already counted via a phrase match
 
-        # Match tokens against description
-        desc_lower = skill.description.lower()
-        for token in query_tokens:
-            if token in desc_lower:
-                score += 1
+        # Single-word terms are matched as tokens; multi-word terms only as
+        # verbatim phrases — so "hardware-in-the-loop" never leaks the token "in".
+        kw_single: dict[str, str] = {}
+        alias_single: dict[str, str] = {}
+        phrases: list[str] = []
+        for term in skill.keywords:
+            toks = _tokenize(term)
+            if len(toks) == 1:
+                kw_single.setdefault(toks[0], term)
+            elif len(toks) > 1:
+                phrases.append(" ".join(toks))
+        for term in skill.aliases:
+            toks = _tokenize(term)
+            if len(toks) == 1:
+                alias_single.setdefault(toks[0], term)
+            elif len(toks) > 1:
+                phrases.append(" ".join(toks))
+        name_segments = set(_tokenize(skill.name.replace("-", " ")))
+        summary_tokens = {t for t in _tokenize(skill.summary) if t not in _STOPWORDS}
 
-        # Keyword exact / partial match (weighted higher)
-        for kw in skill.keywords:
-            kw_lower = kw.lower()
-            if kw_lower in query_lower:
-                score += 3
-            elif any(t in kw_lower for t in query_tokens):
-                score += 1
+        # Phrase tier: a multi-word keyword/alias appearing verbatim in the query.
+        for phrase in phrases:
+            if phrase and phrase in query_norm:
+                raw += _W_PHRASE
+                matched.append(f"phrase:{phrase}")
+                consumed.update(phrase.split())
 
-        # Kconfig pattern match (strong signal)
+        # Token tier: each query token scores once, at its highest-scoring tier.
+        # The description is intentionally NOT matched — prose is too noisy.
+        for tok in dict.fromkeys(query_tokens):  # de-duped, order-stable
+            if tok in consumed:
+                continue
+            if tok in alias_single:
+                raw += _W_ALIAS
+                matched.append(f"alias:{tok}")
+            elif tok in kw_single:
+                raw += _W_KEYWORD
+                matched.append(f"keyword:{tok}")
+            elif tok in name_segments:
+                raw += _W_NAME
+                matched.append(f"name:{tok}")
+            elif tok in summary_tokens:
+                raw += _W_SUMMARY
+                matched.append(f"summary:{tok}")
+
+        # Kconfig signal: each symbol scores once if any pattern matches.
         if kconfig_symbols:
+            patterns = [_kconfig_to_regex(p) for p in skill.kconfig_patterns]
             for sym in kconfig_symbols:
-                for pattern in skill.kconfig_patterns:
-                    regex = re.compile(pattern.replace("*", ".*"))
-                    if regex.fullmatch(sym):
-                        score += 5
+                if any(rx.match(sym) for rx in patterns):
+                    raw += _W_KCONFIG
+                    matched.append(f"kconfig:{sym}")
 
-        # DTS compatible match (strong signal)
+        # DTS signal: exact compatible match, or vendor/device part overlap.
         if dts_compatibles:
+            compat_parts = {part for c in skill.dts_compatible for part in c.split(",")}
             for compat in dts_compatibles:
                 if compat in skill.dts_compatible:
-                    score += 5
+                    raw += _W_DTS_EXACT
+                    matched.append(f"dts:{compat}")
+                elif any(part in compat_parts for part in compat.split(",")):
+                    raw += _W_DTS_PARTIAL
+                    matched.append(f"dts~:{compat}")
 
+        score = raw * skill.weight
         if score > 0:
-            scored.append((score, skill))
+            scored.append(ScoredSkill(skill=skill, score=round(score, 3), matched=matched))
 
-    scored.sort(key=lambda x: -x[0])
-    return [s for _, s in scored[:max_results]]
+    if not scored:
+        return []
+
+    scored.sort(key=lambda s: (-s.score, s.skill.name))
+    cutoff = max(min_score, TOP_RATIO * scored[0].score)
+    return [s for s in scored if s.score >= cutoff][:max_results]

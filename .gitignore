@@ -57,3 +57,7 @@ twister-out/
 # zephyr-cli local artifacts
 .zephyr/skills/
 .zephyr/docs-cache/
+
+# Local build/run scratch artifacts
+/flash.bin
+/benchmarks/

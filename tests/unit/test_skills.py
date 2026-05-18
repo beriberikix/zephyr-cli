@@ -39,7 +39,7 @@ SAMPLE_INDEX_JSON = json.dumps(
                 "name": "connectivity-ble",
                 "description": "BLE and Bluetooth management for Zephyr.",
                 "keywords": ["ble", "bluetooth", "gatt", "hci"],
-                "kconfig_patterns": ["CONFIG_BT.*"],
+                "kconfig_patterns": ["CONFIG_BT*"],
                 "dts_compatible": ["nordic,nrf-radio"],
                 "path": "skills/connectivity-ble",
                 "files": ["SKILL.md"],
@@ -48,7 +48,7 @@ SAMPLE_INDEX_JSON = json.dumps(
                 "name": "storage",
                 "description": "Flash storage, NVS, LittleFS for Zephyr.",
                 "keywords": ["flash", "nvs", "storage", "littlefs", "fatfs"],
-                "kconfig_patterns": ["CONFIG_FLASH.*", "CONFIG_NVS"],
+                "kconfig_patterns": ["CONFIG_FLASH*", "CONFIG_NVS"],
                 "dts_compatible": ["fixed-partitions", "jedec,spi-nor"],
                 "path": "skills/storage",
                 "files": ["SKILL.md"],
@@ -160,21 +160,21 @@ class TestListInstalled:
 class TestSuggestSkills:
     def test_returns_relevant_skill_by_keyword(self, sample_index):
         results = suggest_skills(sample_index, "bluetooth le advertising")
-        names = [s.name for s in results]
+        names = [s.skill.name for s in results]
         assert "connectivity-ble" in names
 
     def test_returns_relevant_skill_by_description(self, sample_index):
         results = suggest_skills(sample_index, "cmake build kconfig")
-        assert results[0].name == "build-system"
+        assert results[0].skill.name == "build-system"
 
     def test_kconfig_pattern_match(self, sample_index):
         results = suggest_skills(sample_index, "", kconfig_symbols=["CONFIG_BT_ENABLED"])
-        names = [s.name for s in results]
+        names = [s.skill.name for s in results]
         assert "connectivity-ble" in names
 
     def test_dts_compatible_match(self, sample_index):
         results = suggest_skills(sample_index, "", dts_compatibles=["jedec,spi-nor"])
-        names = [s.name for s in results]
+        names = [s.skill.name for s in results]
         assert "storage" in names
 
     def test_empty_query_with_no_signals_returns_empty(self, sample_index):
