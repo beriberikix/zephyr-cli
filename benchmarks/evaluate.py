@@ -364,7 +364,7 @@ def check_runtime(
 # ── Orchestration ────────────────────────────────────────────────────────
 
 
-def evaluate_run(run_dir: Path) -> dict | None:
+def evaluate_run(run_dir: Path, skip_build: bool = False) -> dict | None:
     """Evaluate a single benchmark run directory. Returns evaluation dict."""
     meta_file = run_dir / "metadata.json"
     if not meta_file.exists():
@@ -380,8 +380,18 @@ def evaluate_run(run_dir: Path) -> dict | None:
     if not (run_dir / "usage.json").exists():
         write_usage(run_dir)
 
-    # Run all checks
-    build_result = check_build(run_dir, board)
+    # Run all checks. --skip-build substitutes a placeholder build result so
+    # static-analysis-only runs need neither ZEPHYR_BASE nor `west build`.
+    if skip_build:
+        build_result = {
+            "build_ok": False,
+            "skipped": True,
+            "warning_count": 0,
+            "error_count": 0,
+            "errors": ["Build skipped (--skip-build)"],
+        }
+    else:
+        build_result = check_build(run_dir, board)
     completeness = check_completeness(run_dir, task.get("expected_files", []))
     deprecated = check_deprecated_apis(run_dir, task.get("deprecated_apis", []))
     practices = check_best_practices(run_dir, task.get("best_practices", []))
@@ -469,14 +479,16 @@ def main() -> None:
         os.environ["ZEPHYR_BASE"] = str(args.zephyr_base.resolve())
 
     # Verify ZEPHYR_BASE is available before spending time on runs
-    zb = _detect_zephyr_base()
-    if zb:
-        print(f"ZEPHYR_BASE: {zb}")
-    else:
-        print(
-            "WARNING: ZEPHYR_BASE not set and could not auto-detect. "
-            "Builds will fail. Use --zephyr-base or source zephyr-env.sh\n"
-        )
+    # (unnecessary when --skip-build bypasses `west build` entirely).
+    if not args.skip_build:
+        zb = _detect_zephyr_base()
+        if zb:
+            print(f"ZEPHYR_BASE: {zb}")
+        else:
+            print(
+                "WARNING: ZEPHYR_BASE not set and could not auto-detect. "
+                "Builds will fail. Use --zephyr-base or source zephyr-env.sh\n"
+            )
 
     run_dirs = find_run_dirs(args.results_dir)
     if not run_dirs:
@@ -489,10 +501,11 @@ def main() -> None:
         label = f"{meta['task']}/{meta['condition']}/{run_dir.name}"
         print(f"  {label} ...", end=" ", flush=True)
 
-        evaluation = evaluate_run(run_dir)
+        evaluation = evaluate_run(run_dir, skip_build=args.skip_build)
         if evaluation:
             total = evaluation["weighted_total"]
-            build = "✓" if evaluation["details"]["build"]["build_ok"] else "✗"
+            b = evaluation["details"]["build"]
+            build = "skip" if b.get("skipped") else ("✓" if b["build_ok"] else "✗")
             print(f"build={build}  score={total:.2f}")
         else:
             print("SKIP (no metadata)")

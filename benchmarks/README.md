@@ -19,7 +19,7 @@ is given identical task prompts under two conditions:
 | Condition | Skills | Docs corpus | zephyr-cli in PATH |
 |-----------|--------|-------------|--------------------|
 | **Baseline** | disabled | not provisioned | no (stripped from PATH) |
-| **Treatment** | `zephyr-agent-skills` symlinked into `.agents/skills/` | symlinked into `.agents/docs/` | yes |
+| **Treatment** | `zephyr-agent-skills` symlinked into `.agents/skills/` | symlinked as a top-level `zephyr-docs/` | yes |
 
 Every task is run under **each model** (the framework is built to compare e.g.
 Opus and Sonnet); accuracy and token metrics are reported **per model** and
@@ -79,7 +79,9 @@ Beyond the end-to-end benchmark, two component evals isolate specific resources:
 # 0. Create a venv and install dependencies (from repo root)
 uv venv .venv
 source .venv/bin/activate
-uv pip install -e . -e benchmarks/
+# The benchmark runs from the checkout (`python -m benchmarks.run`); it just
+# needs pyyaml. `pytest` (for benchmarks/tests/) comes from the `.[dev]` extra.
+uv pip install -e ".[dev]" pyyaml
 
 # 1. Run the benchmark under both models (generates code via OpenCode)
 python -m benchmarks.run \
