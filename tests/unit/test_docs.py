@@ -37,11 +37,11 @@ class TestFetchReleases:
     def test_parses_github_response(self):
         fake_releases = [
             {
-                "tag_name": "v4.4.0",
+                "tag_name": "zephyrproject-rtos-zephyr-v4-4-0",
                 "published_at": "2026-04-01T00:00:00Z",
                 "assets": [
                     {
-                        "name": "zephyrproject-rtos-zephyr-v4-4-0-markdown.tar.gz",
+                        "name": "zephyrdocs-v4.4.0.tar.gz",
                         "browser_download_url": "https://example.com/docs.tar.gz",
                         "size": 999999,
                     }
@@ -85,11 +85,11 @@ class TestRefresh:
     def test_raises_for_unknown_version(self, cfg):
         fake_releases = [
             {
-                "tag_name": "v4.4.0",
+                "tag_name": "zephyrproject-rtos-zephyr-v4-4-0",
                 "published_at": "2026-04-01T00:00:00Z",
                 "assets": [
                     {
-                        "name": "zephyrproject-rtos-zephyr-v4-4-0-markdown.tar.gz",
+                        "name": "zephyrdocs-v4.4.0.tar.gz",
                         "browser_download_url": "https://example.com/docs.tar.gz",
                         "size": 1,
                     }

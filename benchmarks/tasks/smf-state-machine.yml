@@ -1,0 +1,41 @@
+name: smf-state-machine
+difficulty: medium
+board: native_sim
+
+prompt: |
+  Create a complete Zephyr RTOS project for native_sim using the State Machine
+  Framework (SMF). Implement a traffic light with three states: GREEN, YELLOW,
+  RED. Each state must use SMF_CREATE_STATE with an entry handler that logs
+  the state name with LOG_INF. Transitions: GREEN→YELLOW after 2 seconds,
+  YELLOW→RED after 1 second, RED→GREEN after 3 seconds. Use k_sleep() with
+  K_SECONDS() in a main loop that calls smf_run_state() on each iteration.
+  Also implement a shell command "traffic_status" that prints the current
+  state name. Provide all files: CMakeLists.txt, prj.conf, src/main.c.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_SMF
+  - CONFIG_SHELL
+  - CONFIG_LOG
+
+deprecated_apis:
+  - device_get_binding
+
+best_practices:
+  - find_package(Zephyr)
+  - LOG_MODULE_REGISTER
+  - SMF_CREATE_STATE
+  - smf_set_initial or smf_set_state
+  - smf_run_state
+  - SHELL_CMD_REGISTER or SHELL_STATIC_SUBCMD_SET_CREATE
+
+runtime_patterns:
+  - "[Gg][Rr][Ee][Ee][Nn]"
+  - "[Yy][Ee][Ll][Ll][Oo][Ww]"
+  - "[Rr][Ee][Dd]"
+
+runtime_stdin: []

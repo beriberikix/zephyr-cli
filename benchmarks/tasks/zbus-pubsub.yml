@@ -1,0 +1,38 @@
+name: zbus-pubsub
+difficulty: medium
+board: native_sim
+
+prompt: |
+  Create a complete Zephyr RTOS project for native_sim that uses Zbus for
+  inter-thread communication. Define a "sensor_data" channel carrying a
+  struct with two fields: temperature (int32_t) and timestamp (uint32_t).
+  Create a publisher thread that publishes incrementing fake temperature
+  readings (starting at 20 degrees) every 500ms. Create a subscriber thread
+  using ZBUS_SUBSCRIBER_DEFINE with a message queue that receives the data
+  and logs each reading with LOG_INF.
+  Provide all files: CMakeLists.txt, prj.conf, src/main.c.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_ZBUS
+  - CONFIG_LOG
+
+deprecated_apis:
+  - device_get_binding
+
+best_practices:
+  - find_package(Zephyr)
+  - LOG_MODULE_REGISTER
+  - ZBUS_CHAN_DEFINE
+  - ZBUS_SUBSCRIBER_DEFINE or ZBUS_LISTENER_DEFINE
+  - zbus_chan_pub
+
+runtime_patterns:
+  - "temperature"
+  - "sensor_data\\|subscriber\\|Subscriber\\|SUBSCRIBER"
+
+runtime_stdin: []

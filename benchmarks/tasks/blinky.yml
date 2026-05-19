@@ -1,0 +1,27 @@
+name: blinky
+difficulty: simple
+board: hardware
+
+prompt: |
+  Create a complete Zephyr RTOS project that blinks an LED on the {board_name} board.
+  The LED should toggle every 1 second using GPIO. Use the devicetree to reference the LED.
+  Provide all files needed to build: CMakeLists.txt, prj.conf, and src/main.c.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_GPIO
+
+deprecated_apis:
+  - device_get_binding
+  - DT_LABEL
+
+best_practices:
+  - find_package(Zephyr)
+  - GPIO_DT_SPEC_GET or DEVICE_DT_GET
+  - k_msleep or k_sleep with K_MSEC
+
+runtime_patterns: []

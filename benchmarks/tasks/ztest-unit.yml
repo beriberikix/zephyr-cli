@@ -1,0 +1,52 @@
+name: ztest-unit
+difficulty: medium
+board: native_sim
+
+prompt: |
+  Create a Zephyr project for native_sim that implements a simple ring buffer
+  library and full Ztest unit tests for it.
+
+  Library (src/ring_buf.h and src/ring_buf.c): Implement a fixed-size ring
+  buffer of uint8_t with these functions:
+    - void ring_buf_init(struct ring_buf *rb, uint8_t *buf, size_t capacity)
+    - bool ring_buf_push(struct ring_buf *rb, uint8_t byte)  // false if full
+    - bool ring_buf_pop(struct ring_buf *rb, uint8_t *out)   // false if empty
+    - bool ring_buf_is_empty(const struct ring_buf *rb)
+    - bool ring_buf_is_full(const struct ring_buf *rb)
+
+  Tests (tests/src/test_ring_buf.c): Write Ztest tests using the current API
+  (ZTEST_SUITE / ZTEST macros, not the old ztest_test_suite). Cover:
+    1. Push and pop FIFO order
+    2. Full buffer rejects additional push
+    3. Empty buffer pop returns false
+    4. Wraparound: fill, drain, refill works correctly
+
+  Also provide tests/testcase.yaml or testcase.yaml with appropriate metadata
+  so the project is runnable with: twister -p native_sim -T .
+
+  Provide all files: CMakeLists.txt, prj.conf, src/main.c, src/ring_buf.c,
+  src/ring_buf.h, tests/src/test_ring_buf.c, and testcase.yaml.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/ring_buf.c
+  - src/ring_buf.h
+
+expected_kconfig:
+  - CONFIG_ZTEST
+
+deprecated_apis:
+  - ztest_test_suite
+
+best_practices:
+  - find_package(Zephyr)
+  - ZTEST_SUITE
+  - ZTEST or ztest_user_unit_test
+  - zassert_equal or zassert_true or zassert_false
+
+runtime_patterns:
+  - "PASS"
+  - "[Pp]ass\\|passed\\|PROJECT EXECUTION SUCCESSFUL"
+
+runtime_stdin: []

@@ -1,0 +1,29 @@
+name: thread-sync
+difficulty: simple
+board: native_sim
+
+prompt: |
+  Create a complete Zephyr RTOS project for native_sim with two threads that share a counter
+  variable. Use a k_mutex to protect access and a k_sem to signal between them.
+  Thread A increments the counter and signals Thread B via the semaphore.
+  Thread B waits on the semaphore and prints the counter value.
+  Provide all files: CMakeLists.txt, prj.conf, and src/main.c.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig: []
+
+deprecated_apis:
+  - device_get_binding
+
+best_practices:
+  - find_package(Zephyr)
+  - K_THREAD_STACK_DEFINE
+  - k_mutex_lock
+  - k_sem_give or k_sem_take
+
+runtime_patterns:
+  - "counter"

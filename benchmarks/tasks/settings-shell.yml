@@ -1,0 +1,43 @@
+name: settings-shell
+difficulty: medium
+board: native_sim
+
+prompt: |
+  Create a complete Zephyr RTOS project for native_sim that uses the Settings subsystem
+  with an NVS backend to persist key-value pairs. Register two settings keys:
+  "app/name" (string, default "Zephyr") and "app/count" (uint32, default 0).
+  Implement shell commands "settings_set <key> <value>" and "settings_get <key>"
+  that write and read these settings. On boot, call settings_load() so values
+  set in a previous run are restored and printed.
+  Provide all files: CMakeLists.txt, prj.conf, src/main.c, and a devicetree
+  overlay (boards/native_sim.overlay or app.overlay) that defines a
+  storage_partition for NVS.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_SETTINGS
+  - CONFIG_NVS
+  - CONFIG_FLASH
+  - CONFIG_FLASH_MAP
+  - CONFIG_SHELL
+
+deprecated_apis:
+  - device_get_binding
+
+best_practices:
+  - find_package(Zephyr)
+  - LOG_MODULE_REGISTER
+  - settings_load
+  - SETTINGS_STATIC_HANDLER_DEFINE or settings_register
+  - SHELL_CMD_REGISTER or SHELL_STATIC_SUBCMD_SET_CREATE
+
+runtime_patterns:
+  - "uart:~\\$"
+  - "app/name"
+
+runtime_stdin:
+  - "settings_get app/name"

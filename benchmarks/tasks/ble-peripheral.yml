@@ -1,0 +1,32 @@
+name: ble-peripheral
+difficulty: medium
+board: hardware
+
+prompt: |
+  Create a complete Zephyr RTOS project for the {board_name} that acts as a BLE peripheral.
+  Define a custom GATT service with one characteristic that reports an incrementing counter
+  value. The device should advertise with the name "Zephyr Counter". A connected central
+  can read or subscribe to notifications of the counter which updates every second.
+  Provide all files: CMakeLists.txt, prj.conf, src/main.c.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_BT
+  - CONFIG_BT_PERIPHERAL
+  - CONFIG_BT_GATT_DYNAMIC_DB
+
+deprecated_apis:
+  - device_get_binding
+  - bt_conn_cb_register
+
+best_practices:
+  - find_package(Zephyr)
+  - LOG_MODULE_REGISTER
+  - BT_GATT_SERVICE_DEFINE or bt_gatt_service_register
+  - BT_LE_ADV_CONN
+
+runtime_patterns: []

@@ -72,3 +72,34 @@ jobs:
         with:
           name: coverage-report
           path: htmlcov/
+
+  component-evals:
+    name: Component Evals
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package with dev deps
+        run: pip install -e ".[dev]" pyyaml
+
+      - name: Skills-suggest matcher eval (regression gate)
+        run: pytest tests/test_suggest_eval.py -s -q
+
+      - name: Emit skills-suggest eval artifacts
+        run: python -m tests.suggest_eval --json suggest-eval.json --md suggest-eval.md
+
+      - name: Benchmark parser unit tests (transcript + efficiency)
+        run: python -m pytest benchmarks/tests/ -q
+
+      - name: Upload component-eval artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-evals
+          path: |
+            suggest-eval.json
+            suggest-eval.md

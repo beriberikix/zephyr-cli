@@ -1,0 +1,30 @@
+name: hello-shell
+difficulty: simple
+board: native_sim
+
+prompt: |
+  Create a complete Zephyr RTOS project that registers a custom shell command called "hello"
+  on the native_sim board. When the user types "hello" in the Zephyr shell, it should print
+  "Hello from Zephyr shell!". Provide all files needed: CMakeLists.txt, prj.conf, and src/main.c.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_SHELL
+
+deprecated_apis:
+  - device_get_binding
+
+best_practices:
+  - find_package(Zephyr)
+  - SHELL_CMD_REGISTER or SHELL_STATIC_SUBCMD_SET_CREATE
+
+runtime_patterns:
+  - "uart:~\\$"
+  - "Hello from Zephyr shell!"
+
+runtime_stdin:
+  - "hello"

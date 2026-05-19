@@ -60,4 +60,7 @@ twister-out/
 
 # Local build/run scratch artifacts
 /flash.bin
-/benchmarks/
+
+# Benchmark run outputs (the framework itself is tracked)
+/benchmarks/results/
+/benchmarks/REPORT.md

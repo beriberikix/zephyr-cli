@@ -1,0 +1,7 @@
+{"type": "step_start", "part": {}}
+{"type": "tool_use", "part": {"tool": "bash", "state": {"status": "completed", "input": {"command": "zephyr-cli env"}, "output": "ok json output"}}}
+{"type": "text", "part": {"text": "Writing the project files."}}
+{"type": "tool_use", "part": {"tool": "write", "state": {"status": "completed", "output": "wrote CMakeLists.txt"}}}
+{"type": "tool_use", "part": {"tool": "skill", "state": {"status": "completed", "output": "loaded build-system skill"}}}
+{"type": "step_finish", "part": {"tokens": {"total": 1100, "input": 100, "output": 200, "reasoning": 0, "cache": {"write": 800, "read": 0}}}}
+{"type": "step_finish", "part": {"tokens": {"total": 2000, "input": 50, "output": 150, "reasoning": 0, "cache": {"write": 0, "read": 1800}}}}

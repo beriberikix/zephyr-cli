@@ -1,0 +1,30 @@
+name: flash-storage
+difficulty: medium
+board: hardware
+
+prompt: |
+  Create a complete Zephyr RTOS project for the {board_name} that uses NVS (Non-Volatile
+  Storage) to store and retrieve key-value pairs. Implement shell commands "nvs_write <key> <value>"
+  and "nvs_read <key>" that write and read string values from flash.
+  Provide all files: CMakeLists.txt, prj.conf, src/main.c, and any overlay or partition files.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_NVS
+  - CONFIG_FLASH
+  - CONFIG_SHELL
+
+deprecated_apis:
+  - device_get_binding
+
+best_practices:
+  - find_package(Zephyr)
+  - LOG_MODULE_REGISTER
+  - SHELL_CMD_REGISTER or SHELL_STATIC_SUBCMD_SET_CREATE
+  - nvs_mount
+
+runtime_patterns: []
