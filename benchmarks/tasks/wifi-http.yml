@@ -1,0 +1,32 @@
+name: wifi-http
+difficulty: medium
+board: hardware
+
+prompt: |
+  Create a complete Zephyr RTOS project for the {board_name} that connects to a WiFi
+  network and performs an HTTP GET request to http://example.com. Print the response status
+  code and first 256 bytes of the body to the console.
+  Use Zephyr's native networking stack (not ESP-IDF passthrough).
+  The WiFi SSID and password should be configurable via Kconfig.
+  Provide all files: CMakeLists.txt, prj.conf, src/main.c, and any overlay files needed.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_WIFI
+  - CONFIG_NET_HTTP_CLIENT
+  - CONFIG_NET_SOCKETS
+
+deprecated_apis:
+  - device_get_binding
+  - net_context
+
+best_practices:
+  - find_package(Zephyr)
+  - LOG_MODULE_REGISTER
+  - net_mgmt for wifi events
+
+runtime_patterns: []

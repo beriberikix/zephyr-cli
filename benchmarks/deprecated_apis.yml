@@ -1,0 +1,26 @@
+# Deprecated Zephyr APIs to check for in generated code.
+# Each entry: pattern is a regex, description explains the issue.
+
+- pattern: "device_get_binding\\s*\\("
+  description: "device_get_binding() is deprecated since Zephyr 3.0; use DEVICE_DT_GET() macros"
+
+- pattern: "DT_LABEL\\s*\\("
+  description: "DT_LABEL() is deprecated; use DT_NODELABEL() or DEVICE_DT_GET()"
+
+- pattern: "k_sleep\\s*\\(\\s*\\d"
+  description: "k_sleep() with raw integer is deprecated; use K_MSEC(), K_SECONDS() etc."
+
+- pattern: "net_context_"
+  description: "net_context API is deprecated; use BSD sockets API"
+
+- pattern: "bt_conn_cb_register\\s*\\("
+  description: "bt_conn_cb_register() is deprecated; use BT_CONN_CB_DEFINE()"
+
+- pattern: "flash_write_protection_set\\s*\\("
+  description: "flash_write_protection_set() is removed; no replacement needed"
+
+- pattern: "CONFIG_NET_APP_"
+  description: "CONFIG_NET_APP_* options are removed; use net_mgmt events directly"
+
+- pattern: "ztest_test_suite\\s*\\("
+  description: "ztest_test_suite() is removed since Zephyr 3.5; use ZTEST_SUITE()/ZTEST() macros"

@@ -1,0 +1,6 @@
+{"type": "step_finish", "part": {"tokens": {"total": 300, "input": 10, "output": 20}}}
+this line is not valid json at all
+{"type": "tool_use", "part": {"tool": "read"}}
+
+{"type": "step_finish", "part": {}}
+[1, 2, 3]

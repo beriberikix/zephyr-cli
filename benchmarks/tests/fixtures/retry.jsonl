@@ -1,0 +1,6 @@
+{"type": "tool_use", "part": {"tool": "bash", "state": {"status": "error", "input": {"command": "west build -b native_sim ."}, "output": "error: undefined reference to main"}}}
+{"type": "step_finish", "part": {"tokens": {"total": 500, "input": 10, "output": 40, "reasoning": 0, "cache": {"write": 0, "read": 450}}}}
+{"type": "tool_use", "part": {"tool": "edit", "state": {"status": "completed", "output": "patched src/main.c"}}}
+{"type": "step_finish", "part": {"tokens": {"total": 600, "input": 20, "output": 80, "reasoning": 0, "cache": {"write": 0, "read": 500}}}}
+{"type": "tool_use", "part": {"tool": "bash", "state": {"status": "completed", "input": {"command": "west build -b native_sim ."}, "output": "build successful"}}}
+{"type": "step_finish", "part": {"tokens": {"total": 700, "input": 5, "output": 30, "reasoning": 0, "cache": {"write": 0, "read": 665}}}}

@@ -1,0 +1,34 @@
+name: sensor-polling
+difficulty: medium
+board: hardware
+
+prompt: |
+  Create a complete Zephyr RTOS project for the {board_name} that reads temperature from
+  an I2C sensor (use a BMP280 or similar common sensor). Poll the sensor every 2 seconds
+  and print the temperature reading. Include a shell command "temp" that reads and displays
+  the current temperature on demand.
+  Provide all files: CMakeLists.txt, prj.conf, src/main.c, and a devicetree overlay for
+  the I2C sensor binding.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+
+expected_kconfig:
+  - CONFIG_I2C
+  - CONFIG_SENSOR
+  - CONFIG_SHELL
+
+deprecated_apis:
+  - device_get_binding
+  - DT_LABEL
+
+best_practices:
+  - find_package(Zephyr)
+  - LOG_MODULE_REGISTER
+  - DEVICE_DT_GET
+  - sensor_sample_fetch
+  - sensor_channel_get
+
+runtime_patterns: []

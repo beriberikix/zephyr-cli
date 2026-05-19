@@ -56,16 +56,21 @@ def fetch_releases(limit: int = 10) -> list[DocsRelease]:
             continue
         for asset in rel.get("assets", []):
             name: str = asset["name"]
-            if name.endswith("-markdown.tar.gz"):
-                releases.append(
-                    DocsRelease(
-                        version=tag,
-                        tag=tag,
-                        url=asset["browser_download_url"],
-                        size_bytes=asset.get("size"),
-                        published_at=rel.get("published_at", ""),
-                    )
+            if not name.endswith(".tar.gz"):
+                continue
+            # The git tag is mangled (e.g. "zephyrproject-rtos-zephyr-v4-4-0");
+            # the asset name carries the clean version, e.g.
+            # "zephyrdocs-v4.4.0.tar.gz" -> "v4.4.0".
+            version = name.removeprefix("zephyrdocs-").removesuffix(".tar.gz") or tag
+            releases.append(
+                DocsRelease(
+                    version=version,
+                    tag=tag,
+                    url=asset["browser_download_url"],
+                    size_bytes=asset.get("size"),
+                    published_at=rel.get("published_at", ""),
                 )
+            )
 
     return releases
 

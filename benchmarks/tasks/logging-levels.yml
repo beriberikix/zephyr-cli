@@ -1,0 +1,33 @@
+name: logging-levels
+difficulty: simple
+board: native_sim
+
+prompt: |
+  Create a complete Zephyr RTOS project for native_sim that demonstrates multi-module logging.
+  Create two modules (module_a and module_b), each registering their own log module with
+  LOG_MODULE_REGISTER. module_a should log at INF level, module_b at WRN level.
+  The main function should call both modules and demonstrate runtime log filtering.
+  Provide all files: CMakeLists.txt, prj.conf, src/main.c, src/module_a.c, src/module_a.h,
+  src/module_b.c, src/module_b.h.
+
+expected_files:
+  - CMakeLists.txt
+  - prj.conf
+  - src/main.c
+  - src/module_a.c
+  - src/module_b.c
+
+expected_kconfig:
+  - CONFIG_LOG
+
+deprecated_apis:
+  - printk
+
+best_practices:
+  - find_package(Zephyr)
+  - LOG_MODULE_REGISTER
+  - LOG_INF or LOG_WRN or LOG_ERR
+
+runtime_patterns:
+  - "module_a"
+  - "module_b"
