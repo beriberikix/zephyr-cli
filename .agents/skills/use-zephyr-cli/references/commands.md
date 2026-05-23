@@ -28,7 +28,7 @@ Print resolved Zephyr environment (SDK, west, toolchains, installed skills).
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ---
 
@@ -41,7 +41,7 @@ Scaffold a new Zephyr project.
 | `--topology` | `-t` | `T1` | `T1` (standalone), `T2` (app+MCUboot), `T3` (multi-image sysbuild) |
 | `--board` | `-b` | — | Target board (used in generated next-steps) |
 | `--output-dir` | `-o` | cwd | Parent directory for the new project |
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ---
 
@@ -52,20 +52,20 @@ Scaffold a new Zephyr project.
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--available` | — | false | Also fetch available versions from GitHub |
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ### sdk install \<version\>
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--minimal` | — | false | Minimal SDK (no host tools) |
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ### sdk select \<version\>
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ---
 
@@ -76,20 +76,20 @@ Scaffold a new Zephyr project.
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--installed` | — | false | Only show installed skills |
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ### skills install \<name\>
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--force` | — | false | Re-install even if already present (overwrites local changes!) |
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ### skills show \<name\>
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ### skills suggest \<query\>
 
@@ -99,14 +99,14 @@ Scaffold a new Zephyr project.
 | `--dts` | — | — | Comma-separated DTS compatible strings to boost scoring |
 | `--limit` | — | 5 | Max suggestions returned |
 | `--min-score` | — | 3.0 | Absolute score floor |
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ### skills apply \<name\>
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--target` | `-t` | `src` | Target directory for injected templates |
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ---
 
@@ -116,18 +116,20 @@ Scaffold a new Zephyr project.
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ### docs refresh
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--version` | `-v` | latest | Pin to a specific docs release |
-| `--format` | `-f` | auto | `json` or `human` |
+| `--format` | `-f` | `json` | `json` or `human` |
 
 ---
 
 ## west agent build
+
+`--format` is a **top-level `west agent` flag** — place it before the subcommand: `west agent --format json build ...`. Defaults to `json` in non-TTY contexts, `human` in TTY.
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
@@ -136,13 +138,12 @@ Scaffold a new Zephyr project.
 | `--pristine` | `-p` | false | Clean build |
 | `--extra-conf` | — | — | Extra Kconfig .conf file (sets `OVERLAY_CONFIG`) |
 | `--source-dir` | `-s` | cwd | App source directory |
-| `--format` | `-f` | auto | `json` or `human` |
 
 ---
 
 ## west agent inspect
 
-All inspect subcommands accept `--format` and `--build-dir` / `-d`.
+`--format` is a top-level `west agent` flag (see above). `--build-dir` / `-d` is accepted by `kconfig`, `dts`, `memory`, and `threads` (these require a prior build). The `modules`, `bindings`, and `env` subcommands do not require a build.
 
 ### inspect kconfig
 
@@ -191,7 +192,7 @@ All inspect subcommands accept `--format` and `--build-dir` / `-d`.
 
 ### inspect env
 
-No additional flags beyond `--format`.
+No additional flags. Does not require a build.
 
 ---
 

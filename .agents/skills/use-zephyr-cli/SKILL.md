@@ -47,21 +47,23 @@ Parse this output to understand what's available before suggesting installations
 ## Building firmware
 
 ```bash
-west agent build --board <board> --format json
+west agent --format json build --board <board>
 ```
+
+Note: `--format` is a top-level `west agent` flag — it goes *before* the subcommand.
 
 Key patterns:
 - Always specify `--board` explicitly (e.g., `nrf52840dk/nrf52840`, `qemu_cortex_m3`). Don't rely on the `$BOARD` env var — it may not be set.
 - Use `--pristine` for clean rebuilds when changing boards or after significant config changes.
 - Apply extra Kconfig settings via `--extra-conf myoverlay.conf` — this sets `OVERLAY_CONFIG` and merges with the project's `prj.conf`.
 - The build directory defaults to `build/<board-slug>`. Override with `--build-dir` if needed.
-- Build errors come back as structured JSON with the error message — read the `message` field rather than trying to parse log output.
+- Build errors come back as structured JSON — check `errors[].message` for actionable error details and `raw_stderr` for the full build log. Don't try to parse raw log output.
 
 ---
 
 ## Inspecting the build
 
-`west agent inspect` has several subcommands. Each one queries build artifacts, so you need a successful build first.
+`west agent inspect` has several subcommands. Some require build artifacts (`kconfig`, `dts`, `memory`, `threads`) — build first before using those. Others (`modules`, `bindings`, `env`) work without a prior build.
 
 ### Kconfig
 
@@ -69,13 +71,13 @@ Use `inspect kconfig` to understand what's enabled and why:
 
 ```bash
 # Look up a specific symbol and its dependency tree
-west agent inspect kconfig --symbol CONFIG_BT --format json
+west agent --format json inspect kconfig --symbol CONFIG_BT
 
 # Search for symbols by regex pattern
-west agent inspect kconfig --search 'BT_.*' --format json
+west agent --format json inspect kconfig --search 'BT_.*'
 
 # See only what the developer explicitly changed from defaults
-west agent inspect kconfig --changed --format json
+west agent --format json inspect kconfig --changed
 ```
 
 The `--symbol` output includes the dependency chain, which is invaluable for understanding *why* a symbol is enabled or disabled. When a user asks "why can't I enable X?", use `--symbol` to trace the dependency tree.
@@ -84,33 +86,33 @@ The `--symbol` output includes the dependency chain, which is invaluable for und
 
 ```bash
 # Dump the full merged DTS as JSON
-west agent inspect dts --format json
+west agent --format json inspect dts
 
 # Filter to a specific node
-west agent inspect dts --node /soc/i2c@40003000 --format json
+west agent --format json inspect dts --node /soc/i2c@40003000
 
 # Find nodes by compatible string (e.g., all SPI controllers)
-west agent inspect dts --compatible nordic,nrf-spim --format json
+west agent --format json inspect dts --compatible nordic,nrf-spim
 
 # Show chosen node mappings (zephyr,console, zephyr,shell-uart, etc.)
-west agent inspect dts --chosen --format json
+west agent --format json inspect dts --chosen
 ```
 
 ### Memory, threads, modules, bindings
 
 ```bash
 # ROM/RAM usage summary (add --detailed for per-symbol breakdown)
-west agent inspect memory --format json
+west agent --format json inspect memory
 
 # Thread stack allocations
-west agent inspect threads --format json
+west agent --format json inspect threads
 
 # List west modules with metadata (add --with-paths for full paths)
-west agent inspect modules --format json
+west agent --format json inspect modules
 
 # Search DTS bindings by compatible string or regex
-west agent inspect bindings --compatible nordic,nrf-uart --format json
-west agent inspect bindings --search 'spi.*controller' --format json
+west agent --format json inspect bindings --compatible nordic,nrf-uart
+west agent --format json inspect bindings --search 'spi.*controller'
 ```
 
 ---
@@ -146,7 +148,7 @@ zephyr-cli skills suggest "wireless" --kconfig CONFIG_BT,CONFIG_BT_PERIPHERAL --
 zephyr-cli skills suggest "sensor" --dts bosch,bme280 --format json
 ```
 
-The suggest command uses deterministic lexical scoring (not an LLM) — Kconfig and DTS matches score highest (8.0 each), so always pass them when available. You can get the active Kconfig symbols via `west agent inspect kconfig --changed`.
+The suggest command uses deterministic lexical scoring (not an LLM) — Kconfig and DTS matches score highest (8.0 each), so always pass them when available. You can get the active Kconfig symbols via `west agent --format json inspect kconfig --changed`.
 
 ### Installing and using
 
@@ -175,7 +177,7 @@ These skills contain up-to-date Zephyr guidance that supplements your training d
 zephyr-cli skills list --installed --format json
 
 # 2. Suggest skills based on the current build context
-west agent inspect kconfig --changed --format json  # get active symbols
+west agent --format json inspect kconfig --changed  # get active symbols
 zephyr-cli skills suggest "bluetooth" --kconfig CONFIG_BT,CONFIG_BT_PERIPHERAL --format json
 
 # 3. Install only if not present
@@ -211,13 +213,13 @@ Docs are cached at `~/.local/share/zephyr-cli/docs/<version>/`. Once cached, you
 
 ```bash
 # Auto-detect backend (QEMU or native_sim based on the board)
-west agent emulate --format json
+west agent --format json emulate
 
 # Force a specific backend
-west agent emulate --backend qemu --format json
+west agent --format json emulate --backend qemu
 
 # Set a timeout (seconds; 0 = no limit)
-west agent emulate --timeout 60 --format json
+west agent --format json emulate --timeout 60
 ```
 
 The auto-detect logic picks QEMU for boards like `qemu_cortex_m3` and native_sim for `native_sim` targets. Always set a timeout when running programmatically to avoid hanging.
@@ -228,13 +230,13 @@ The auto-detect logic picks QEMU for boards like `qemu_cortex_m3` and native_sim
 
 ```bash
 # Run tests on a specific platform
-west agent test --platform qemu_cortex_m3 --format json
+west agent --format json test --platform qemu_cortex_m3
 
 # Build-only (no execution)
-west agent test --platform qemu_cortex_m3 --build-only --format json
+west agent --format json test --platform qemu_cortex_m3 --build-only
 
 # Include test logs in the output
-west agent test --platform qemu_cortex_m3 --inline-logs --format json
+west agent --format json test --platform qemu_cortex_m3 --inline-logs
 ```
 
 Use `--inline-logs` when you need to diagnose test failures — it embeds the full test output in the JSON response.
@@ -245,17 +247,17 @@ Use `--inline-logs` when you need to diagnose test failures — it embeds the fu
 
 ```bash
 # Flash with auto-detected runner
-west agent flash --format json
+west agent --format json flash
 
 # Force a specific runner
-west agent flash --runner jlink --format json
+west agent --format json flash --runner jlink
 
 # Start a debug server in background
-west agent debug --server --format json
+west agent --format json debug --server
 # Returns: {"pid": 12345, "gdb_port": 2331}
 
 # Stream RTT output as newline-delimited JSON
-west agent debug --rtt-port 19021 --rtt-timeout 30 --format json
+west agent --format json debug --rtt-port 19021 --rtt-timeout 30
 ```
 
 ---
@@ -296,5 +298,5 @@ zephyr-cli sdk select 0.16.8 --format json
 3. **Don't clobber skills.** Check `skills list --installed` before installing. Never use `--force` without the user's explicit request.
 4. **Use Kconfig/DTS context for skill discovery.** The `--kconfig` and `--dts` flags on `skills suggest` give much better results than plain text queries.
 5. **Read installed skills.** After installing a skill, read its `SKILL.md` — it contains current best practices that may be newer than your training data.
-6. **Build before inspecting.** All `inspect` subcommands require build artifacts. Build first.
+6. **Build before inspecting (some subcommands).** The `kconfig`, `dts`, `memory`, and `threads` inspect subcommands require build artifacts. `modules`, `bindings`, and `env` work without a build.
 7. **Set timeouts on emulation.** Always pass `--timeout` when running `west agent emulate` programmatically to avoid indefinite hangs.
