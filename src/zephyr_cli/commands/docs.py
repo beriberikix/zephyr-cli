@@ -76,6 +76,7 @@ def docs_refresh(
                 version=ver,
                 path=str(path),
                 message=f"Docs {ver} cached at {path}",
+                manifest=docs_core.read_manifest(path),
             ),
             fmt=fmt,
         )
