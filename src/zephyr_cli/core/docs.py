@@ -6,13 +6,16 @@ on beriberikix/zephyrdocs.md and caches them locally.
 
 from __future__ import annotations
 
+import json
+import shutil
 import tarfile
 from pathlib import Path
 
 import httpx
+from pydantic import ValidationError
 
 from zephyr_cli.core.config import ZephyrCliConfig
-from zephyr_cli.schemas.docs import DocsRelease
+from zephyr_cli.schemas.docs import DocsManifest, DocsRelease
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -20,6 +23,7 @@ from zephyr_cli.schemas.docs import DocsRelease
 
 RELEASES_API = "https://api.github.com/repos/beriberikix/zephyrdocs.md/releases"
 _CACHE_SUBDIR = "docs"
+_MANIFEST_NAME = "manifest.json"
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +35,58 @@ def _docs_cache(cfg: ZephyrCliConfig) -> Path:
     d = Path(cfg.data_dir) / _CACHE_SUBDIR
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _find_manifest(root: Path) -> Path | None:
+    """Locate manifest.json at the bundle root or one level under it."""
+    direct = root / _MANIFEST_NAME
+    if direct.is_file():
+        return direct
+
+    for child in sorted(p for p in root.iterdir() if p.is_dir()):
+        candidate = child / _MANIFEST_NAME
+        if candidate.is_file():
+            return candidate
+
+    return None
+
+
+def read_manifest(path: Path) -> DocsManifest | None:
+    """Read a bundle's manifest.json, or None when it is absent or unusable.
+
+    Bundles published before manifests existed simply do not have one, so a
+    missing or malformed file is not an error.
+    """
+    try:
+        manifest_path = _find_manifest(path)
+    except OSError:
+        return None
+
+    if manifest_path is None:
+        return None
+
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    try:
+        return DocsManifest.model_validate(data)
+    except ValidationError:
+        return None
+
+
+def _extract(archive: Path, dest: Path) -> None:
+    """Extract a downloaded tarball, refusing members that escape dest."""
+    with tarfile.open(archive, "r:gz") as tf:
+        try:
+            tf.extractall(dest, filter="data")
+        except TypeError:
+            # Python < 3.11.4 has no extraction filters.
+            tf.extractall(dest)
 
 
 # ---------------------------------------------------------------------------
@@ -115,9 +171,28 @@ def refresh(cfg: ZephyrCliConfig, version: str | None = None) -> tuple[str, Path
             for chunk in resp.iter_bytes(chunk_size=65536):
                 fh.write(chunk)
 
-    dest.mkdir()
-    with tarfile.open(archive, "r:gz") as tf:
-        tf.extractall(dest)
-    archive.unlink(missing_ok=True)
+    # Extract to a staging directory first: the bundle names its own version in
+    # manifest.json, and that is more trustworthy than the version recovered
+    # from the asset filename, which is only a naming convention.
+    staging = cache / f".{release.version}.incoming"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir()
 
-    return release.version, dest
+    try:
+        _extract(archive, staging)
+        archive.unlink(missing_ok=True)
+
+        manifest = read_manifest(staging)
+        version = manifest.version if manifest and manifest.version else release.version
+
+        dest = cache / version
+        if dest.exists():
+            return version, dest
+
+        staging.rename(dest)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        archive.unlink(missing_ok=True)
+        raise
+
+    return version, dest

@@ -105,3 +105,109 @@ class TestRefresh:
             pytest.raises(ValueError, match="not found"),
         ):
             docs_core.refresh(cfg, version="v9.9.9")
+
+
+class TestReadManifest:
+    def _bundle(self, root: Path, payload: str, nested: bool = True) -> Path:
+        target = root / "markdown" if nested else root
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "manifest.json").write_text(payload, encoding="utf-8")
+        return root
+
+    def test_reads_manifest_nested_under_bundle_root(self, tmp_path):
+        self._bundle(tmp_path, '{"schema": 1, "version": "v4.4.0", "page_count": 2364}')
+        manifest = docs_core.read_manifest(tmp_path)
+        assert manifest is not None
+        assert manifest.version == "v4.4.0"
+        assert manifest.page_count == 2364
+
+    def test_reads_manifest_at_bundle_root(self, tmp_path):
+        self._bundle(tmp_path, '{"schema": 1, "version": "v4.3.1"}', nested=False)
+        manifest = docs_core.read_manifest(tmp_path)
+        assert manifest is not None
+        assert manifest.version == "v4.3.1"
+
+    def test_returns_none_when_absent(self, tmp_path):
+        (tmp_path / "markdown").mkdir()
+        assert docs_core.read_manifest(tmp_path) is None
+
+    def test_returns_none_for_malformed_json(self, tmp_path):
+        self._bundle(tmp_path, "{not json")
+        assert docs_core.read_manifest(tmp_path) is None
+
+    def test_returns_none_for_non_object(self, tmp_path):
+        self._bundle(tmp_path, '["a", "b"]')
+        assert docs_core.read_manifest(tmp_path) is None
+
+    def test_ignores_unknown_fields(self, tmp_path):
+        self._bundle(tmp_path, '{"schema": 1, "version": "v4.4.0", "future": {"a": 1}}')
+        manifest = docs_core.read_manifest(tmp_path)
+        assert manifest is not None
+        assert manifest.version == "v4.4.0"
+
+
+class TestRefreshUsesManifest:
+    def _tarball(self, tmp_path: Path, manifest: str | None) -> Path:
+        import tarfile as _tarfile
+
+        stage = tmp_path / "stage" / "markdown"
+        stage.mkdir(parents=True)
+        (stage / "index.md").write_text("# Zephyr\n", encoding="utf-8")
+        if manifest is not None:
+            (stage / "manifest.json").write_text(manifest, encoding="utf-8")
+
+        archive = tmp_path / "bundle.tar.gz"
+        with _tarfile.open(archive, "w:gz") as tf:
+            tf.add(stage, arcname="markdown")
+        return archive
+
+    def _run(self, cfg, tmp_path, archive: Path, asset_version: str):
+        releases = [
+            docs_core.DocsRelease(
+                version=asset_version, tag="mangled-tag", url="https://example.com/b.tar.gz"
+            )
+        ]
+
+        class _Resp:
+            def raise_for_status(self):
+                return None
+
+            def iter_bytes(self, chunk_size=65536):
+                yield archive.read_bytes()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        with (
+            patch.object(docs_core, "fetch_releases", return_value=releases),
+            patch.object(docs_core.httpx, "stream", return_value=_Resp()),
+        ):
+            return docs_core.refresh(cfg)
+
+    def test_manifest_version_wins_over_asset_name(self, cfg, tmp_path):
+        archive = self._tarball(tmp_path, '{"schema": 1, "version": "v4.4.2"}')
+        version, path = self._run(cfg, tmp_path, archive, asset_version="wrong-from-filename")
+
+        assert version == "v4.4.2"
+        assert path.name == "v4.4.2"
+        assert (path / "markdown" / "index.md").is_file()
+        assert docs_core.list_cached(cfg) == ["v4.4.2"]
+
+    def test_falls_back_to_asset_name_without_manifest(self, cfg, tmp_path):
+        archive = self._tarball(tmp_path, None)
+        version, path = self._run(cfg, tmp_path, archive, asset_version="v4.1.0")
+
+        assert version == "v4.1.0"
+        assert path.name == "v4.1.0"
+        assert (path / "markdown" / "index.md").is_file()
+
+    def test_leaves_no_staging_directory_behind(self, cfg, tmp_path):
+        archive = self._tarball(tmp_path, '{"schema": 1, "version": "v4.4.2"}')
+        self._run(cfg, tmp_path, archive, asset_version="v4.4.2")
+
+        cache = Path(cfg.data_dir) / "docs"
+        assert [p.name for p in cache.iterdir() if p.name.startswith(".")] == []
+        assert not list(cache.glob("*.tar.gz"))
